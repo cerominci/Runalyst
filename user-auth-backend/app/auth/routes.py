@@ -1,0 +1,90 @@
+from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from sqlalchemy.orm import Session
+from app.deps.db import get_db
+from app.models.user import User
+from app.auth.schemas import SignUpIn, TokenOut, UserOut
+from app.core.security import hash_password, verify_password, create_access_token, decode_access_token
+
+router = APIRouter(prefix="/auth", tags=["auth"])
+bearer = HTTPBearer(auto_error=False)
+
+
+@router.post("/signup", response_model=UserOut, status_code=status.HTTP_201_CREATED)
+def signup(payload: SignUpIn, db: Session = Depends(get_db)):
+    # Validate password length (bcrypt limit)
+    if len(payload.password.encode('utf-8')) > 72:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Password cannot exceed 72 bytes"
+        )
+    
+    # Check if user already exists
+    existing_user = db.query(User).filter(User.email == payload.email).first()
+    if existing_user:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Email already registered"
+        )
+    
+    # Create new user
+    try:
+        user = User(email=payload.email, hashed_password=hash_password(payload.password))
+        db.add(user)
+        db.commit()
+        db.refresh(user)
+        
+        # FIX: Return the ORM object directly. Pydantic's 'from_attributes = True' 
+        # (formerly from_orm) will automatically map all fields (id, email, is_active, created_at)
+        return user
+        
+    except Exception as e:
+        db.rollback()
+        # Log the exception for debugging on your side
+        print(f"Error during user creation: {e}") 
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to create user"
+        )
+
+
+@router.post("/login", response_model=TokenOut)
+def login(payload: SignUpIn, db: Session = Depends(get_db)):
+    user = db.query(User).filter(User.email == payload.email).first()
+    if not user or not verify_password(payload.password, user.hashed_password):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid credentials"
+        )
+    
+    token = create_access_token(sub=str(user.id))
+    return TokenOut(access_token=token)
+
+
+@router.get("/me", response_model=UserOut)
+def me(
+    credentials: HTTPAuthorizationCredentials | None = Depends(bearer),
+    db: Session = Depends(get_db)
+):
+    if not credentials or credentials.scheme.lower() != "bearer":
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Not authenticated"
+        )
+    
+    user_id = decode_access_token(credentials.credentials)
+    if not user_id:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or expired token"
+        )
+    
+    user = db.query(User).filter(User.id == int(user_id)).first()
+    if not user or not user.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="User inactive or not found"
+        )
+    
+    # FIX: Return the ORM object directly here too
+    return user

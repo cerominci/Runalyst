@@ -5,3 +5,5 @@ psycopg2-binary
 pydantic
 python-dotenv
 alembic
+bcrypt==5.0.0 
+python-jose[cryptography]
