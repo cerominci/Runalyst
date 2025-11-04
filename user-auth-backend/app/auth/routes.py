@@ -143,3 +143,47 @@ def reset_password(
     db.commit()
 
     return {"msg": "Password updated successfully"}
+
+
+#placeholder account deletion, no email confirmation needed like signup
+#will be updated in future together along with signup to include email confirmation flows
+@router.delete("/me", status_code=status.HTTP_200_OK)
+def delete_me(
+        credentials: HTTPAuthorizationCredentials | None = Depends(bearer),
+        db: Session = Depends(get_db)
+):
+    """
+    Delete the currently authenticated user's account.
+    """
+    if not credentials or credentials.scheme.lower() != "bearer":
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Not authenticated"
+        )
+
+    user_id = decode_access_token(credentials.credentials)
+    if not user_id:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or expired token"
+        )
+
+    user = db.query(User).filter(User.id == int(user_id)).first()
+    if not user or not user.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="User inactive or not found"
+        )
+
+    try:
+        db.delete(user)
+        db.commit()
+    except Exception as e:
+        db.rollback()
+        print(f"Error during user deletion: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to delete account"
+        )
+
+    return {"detail": "Account deleted successfully"}
