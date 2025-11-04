@@ -29,3 +29,10 @@ class UserOut(BaseModel):
     
     class Config:
         from_attributes = True
+
+class PasswordResetRequestIn(BaseModel):
+    email: EmailStr
+
+class PasswordResetIn(BaseModel):
+    token: str
+    new_password: str

@@ -109,3 +109,22 @@ def decode_access_token(token: str) -> str | None:
     except Exception:
         # Catch any other unexpected errors
         return None
+
+def create_password_reset_token(email: str) -> str:
+    """
+    Creates a password reset token.
+    """
+    expire = datetime.utcnow() + timedelta(minutes=settings.PASSWORD_RESET_TOKEN_EXPIRE_MINUTES)
+    to_encode = {"exp": expire, "sub": email}
+    encoded_jwt = jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
+    return encoded_jwt
+
+def decode_password_reset_token(token: str) -> str | None:
+    """
+    Decodes the password reset token to get the user's email.
+    """
+    try:
+        decoded_token = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
+        return decoded_token.get("sub")
+    except JWTError:
+        return None

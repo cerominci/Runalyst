@@ -5,6 +5,8 @@ from app.deps.db import get_db
 from app.models.user import User
 from app.auth.schemas import SignUpIn, TokenOut, UserOut
 from app.core.security import hash_password, verify_password, create_access_token, decode_access_token
+from app.auth.schemas import PasswordResetRequestIn, PasswordResetIn
+from app.core.security import create_password_reset_token, decode_password_reset_token
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 bearer = HTTPBearer(auto_error=False)
@@ -88,3 +90,56 @@ def me(
     
     # FIX: Return the ORM object directly here too
     return user
+
+
+@router.post("/request-password-reset")
+def request_password_reset(
+        payload: PasswordResetRequestIn,
+        db: Session = Depends(get_db)
+):
+    user = db.query(User).filter(User.email == payload.email).first()
+    if not user:
+        # Note: We don't want to reveal if an email exists or not
+        # for security reasons. So we return a generic success message.
+        return {"msg": "If a user with that email exists, a password reset link has been sent."}
+
+    password_reset_token = create_password_reset_token(email=user.email)
+
+    # In a real application, you would send the token via email here.
+    # For this example, we'll just print it.
+    print(f"Password reset token for {user.email}: {password_reset_token}")
+
+    return {"msg": "If a user with that email exists, a password reset link has been sent."}
+
+
+@router.post("/reset-password")
+def reset_password(
+        payload: PasswordResetIn,
+        db: Session = Depends(get_db)
+):
+    email = decode_password_reset_token(payload.token)
+    if not email:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid or expired token"
+        )
+
+    user = db.query(User).filter(User.email == email).first()
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found"
+        )
+
+    # Validate new password length
+    if len(payload.new_password.encode('utf-8')) > 72:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Password cannot exceed 72 bytes"
+        )
+
+    user.hashed_password = hash_password(payload.new_password)
+    db.add(user)
+    db.commit()
+
+    return {"msg": "Password updated successfully"}
