@@ -1,3 +1,4 @@
+import logging
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, status
 from fastapi.middleware.cors import CORSMiddleware
@@ -12,7 +13,7 @@ async def lifespan(app: FastAPI):
     from app.db.base import Base
     from app.db.session import engine
     from app.models.user import User  # Import models to register them
-    
+
     # Create tables if they don't exist
     Base.metadata.create_all(bind=engine)
     print("✓ Database tables created/verified")

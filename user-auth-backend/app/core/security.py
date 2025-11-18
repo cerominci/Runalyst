@@ -116,7 +116,7 @@ def create_password_reset_token(email: str) -> str:
     """
     expire = datetime.utcnow() + timedelta(minutes=settings.PASSWORD_RESET_TOKEN_EXPIRE_MINUTES)
     to_encode = {"exp": expire, "sub": email}
-    encoded_jwt = jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
+    encoded_jwt = jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.JWT_ALG)
     return encoded_jwt
 
 def decode_password_reset_token(token: str) -> str | None:
@@ -124,7 +124,7 @@ def decode_password_reset_token(token: str) -> str | None:
     Decodes the password reset token to get the user's email.
     """
     try:
-        decoded_token = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
+        decoded_token = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.JWT_ALG])
         return decoded_token.get("sub")
     except JWTError:
         return None

@@ -28,7 +28,7 @@ def signup(payload: SignUpIn, db: Session = Depends(get_db)):
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Email already registered"
         )
-    
+
     # Create new user
     try:
         user = User(email=payload.email, hashed_password=hash_password(payload.password))
@@ -97,13 +97,27 @@ def request_password_reset(
         payload: PasswordResetRequestIn,
         db: Session = Depends(get_db)
 ):
-    user = db.query(User).filter(User.email == payload.email).first()
+    try:
+        user = db.query(User).filter(User.email == payload.email).first()
+    except Exception as e:
+        print(f"Database error during password reset request: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="User email cannot found"
+        )
     if not user:
         # Note: We don't want to reveal if an email exists or not
         # for security reasons. So we return a generic success message.
         return {"msg": "If a user with that email exists, a password reset link has been sent."}
 
-    password_reset_token = create_password_reset_token(email=user.email)
+    try:
+        password_reset_token = create_password_reset_token(email=user.email)
+    except Exception as e:
+        print(f"Error creating password reset token: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Failed to create password reset token"
+        )
 
     # In a real application, you would send the token via email here.
     # For this example, we'll just print it.

@@ -13,6 +13,9 @@ class Settings(BaseSettings):
     JWT_SECRET: str
     JWT_ALG: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60
+
+    PASSWORD_RESET_TOKEN_EXPIRE_MINUTES: int = 15
+    SECRET_KEY: str = "secretkey"
     
     # App Configuration
     APP_ENV: str = "development"
