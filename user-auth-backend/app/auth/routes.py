@@ -63,6 +63,7 @@ def login(payload: SignUpIn, db: Session = Depends(get_db)):
     return TokenOut(access_token=token)
 
 
+
 @router.get("/me", response_model=UserOut)
 def me(
     credentials: HTTPAuthorizationCredentials | None = Depends(bearer),
@@ -91,6 +92,9 @@ def me(
     # FIX: Return the ORM object directly here too
     return user
 
+@router.post("/test")
+def test_endpoint():
+    return {"msg": "Test endpoint is working!"}
 
 @router.post("/request-password-reset")
 def request_password_reset(
