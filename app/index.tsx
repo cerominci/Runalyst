@@ -1,233 +1,384 @@
-import React, { useState } from "react";
+import Row from '@/components/atomic/Layout/Row';
+import ScreenContainer from '@/components/atomic/Layout/ScreenContainer';
+import ScrollScreen from '@/components/atomic/Layout/ScrollScreen';
+import BodyText from '@/components/atomic/Typography/BodyText';
+import Subtitle from '@/components/atomic/Typography/Subtitle';
+import Title from '@/components/atomic/Typography/Title';
+import Ionicons from '@expo/vector-icons/Ionicons';
+import { Image } from 'react-native';
 
-// Layout
-import Column from "../components/atomic/Layout/Column";
-import Row from "../components/atomic/Layout/Row";
-import ScrollScreen from "../components/atomic/Layout/ScrollScreen";
 
-// Typography
-import BodyText from "../components/atomic/Typography/BodyText";
-import Subtitle from "../components/atomic/Typography/Subtitle";
-import Title from "../components/atomic/Typography/Title";
 
-// Buttons
-import GoogleButton from "../components/atomic/Button/GoogleButton";
-import IconButton from "../components/atomic/Button/IconButton";
-import PrimaryButton from "../components/atomic/Button/PrimaryButton";
-import SecondaryButton from "../components/atomic/Button/SecondaryButton";
+import React, { useState } from 'react';
+import { LayoutAnimation, Platform, StyleSheet, TouchableOpacity, UIManager, View } from 'react-native';
 
-// Inputs
-import Dropdown from "../components/atomic/Inputs/Dropdown";
-import PasswordInput from "../components/atomic/Inputs/PasswordInput";
-import TextInputField from "../components/atomic/Inputs/TextInputField";
-import VerificationCodeInput from "../components/atomic/Inputs/VerificationCodeInput";
+// Enable LayoutAnimation on Android
+if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
+  UIManager.setLayoutAnimationEnabledExperimental(true);
+}
 
-// Feedback
-import ErrorAlert from "../components/atomic/Feedback/ErrorAlert";
-import InfoAlert from "../components/atomic/Feedback/InfoAlert";
-import LoadingSpinner from "../components/atomic/Feedback/LoadingSpinner";
-import ProgressBar from "../components/atomic/Feedback/ProgressBar";
-
-// 🔹 Composite: Upload
-import CameraRecordButton from "../components/composite/Upload/CameraRecordButton";
-import GalleryPickerButton from "../components/composite/Upload/GalleryPickerButton";
-import VideoSourceCard from "../components/composite/Upload/VideoSourceCard";
-
-// 🔹 Composite: History
-import BodyPartSelector from "../components/composite/History/BodyPartSelector";
-import IntervalSelector from "../components/composite/History/IntervalSelector";
-import MetricCard from "../components/composite/History/MetricCard";
-
-// 🔹 Composite: Tips
-import AccordionItem from "../components/composite/Tips/AccordionItem";
-
-const UIPlayground = () => {
-  // atomic test state
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [code, setCode] = useState("");
-  const [dropdownValue, setDropdownValue] = useState<string | null>(null);
-  const [progress, setProgress] = useState(0.3);
-  const [loading, setLoading] = useState(false);
-
-  // composite test state
-  const [interval, setInterval] = useState<string | null>(null);
-  const [bodyPart, setBodyPart] = useState<string | null>("Full body");
-
+export default function TipsScreen() {
   return (
-    <ScrollScreen>
-      <Column style={{ gap: 24 }}>
-        {/* ====================== ATOMIC TEST ====================== */}
-        <Column style={{ gap: 8 }}>
-          <Title>Runalyst UI Playground</Title>
-          <Subtitle>Atomic components test screen</Subtitle>
-          <BodyText>
-            Bu ekranda önce atomic componentleri, ardından composite componentlerden
-            bazılarını test ediyorsun.
-          </BodyText>
-        </Column>
+    <ScreenContainer>
+      <ScrollScreen>
+        <ContentWrapper>
+          
 
-        {/* BUTTONS */}
-        <Column style={{ gap: 8 }}>
-          <Subtitle>Buttons (atomic)</Subtitle>
-          <PrimaryButton
-            title={loading ? "Loading..." : "Primary Button"}
-            onPress={() => {
-              setLoading(true);
-              setTimeout(() => setLoading(false), 1500);
-            }}
-            loading={loading}
-          />
-          <SecondaryButton
-            title="Secondary Button"
-            onPress={() => console.log("Secondary pressed")}
-          />
-          <Row style={{ alignItems: "center", justifyContent: "flex-start", gap: 8 }}>
-            <IconButton
-              icon="settings-outline"
-              onPress={() => console.log("Icon pressed")}
+
+          {/* HEADER */}
+          <Title style={styles.headerTitle}>Tips for Better Analysis</Title>
+          <Subtitle style={styles.headerSubtitle}>
+            Get the most accurate feedback by following these video and form tips.
+          </Subtitle>
+
+          
+          
+          {/* -------------------- VIDEO QUALITY TIP KARTLARI -------------------- */}
+
+          <View style={styles.previewBlock}>
+            <Subtitle style={styles.imageTitle}>Start from an edge</Subtitle>
+            <Image
+              source={require('@/assets/images/run1.png')}
+              style={styles.previewImage}
             />
-            <BodyText>Icon Button (settings-outline)</BodyText>
-          </Row>
-          <GoogleButton onPress={() => console.log("Google login")} />
-        </Column>
+          </View>
 
-        {/* INPUTS */}
-        <Column style={{ gap: 12 }}>
-          <Subtitle>Inputs (atomic)</Subtitle>
-
-          <TextInputField
-            label="Email"
-            value={email}
-            onChangeText={setEmail}
-            placeholder="you@example.com"
-          />
-
-          <PasswordInput
-            label="Password"
-            value={password}
-            onChangeText={setPassword}
-            placeholder="Enter your password"
-          />
-
-          <VerificationCodeInput
-            label="Verification Code"
-            value={code}
-            onChangeText={setCode}
-          />
-
-          <Dropdown
-            label="Generic Dropdown"
-            selectedValue={dropdownValue}
-            onSelect={setDropdownValue}
-            options={["Option A", "Option B", "Option C"]}
-            placeholder="Select option"
-          />
-        </Column>
-
-        {/* FEEDBACK */}
-        <Column style={{ gap: 12 }}>
-          <Subtitle>Feedback (atomic)</Subtitle>
-
-          <InfoAlert message="This is an informational alert. Good for tips or guidance." />
-          <ErrorAlert message="This is an error alert. Something went wrong." />
-
-          <BodyText>Analysis Progress: {(progress * 100).toFixed(0)}%</BodyText>
-          <ProgressBar progress={progress} />
-
-          <Row style={{ gap: 8, marginTop: 4 }}>
-            <SecondaryButton
-              title="Decrease"
-              onPress={() => setProgress((p) => Math.max(0, p - 0.1))}
-              style={{ flex: 1 }}
+          <View style={styles.previewBlock}>
+            <Subtitle style={styles.imageTitle}>Keep running!</Subtitle>
+            <Image
+              source={require('@/assets/images/run2.png')}
+              style={styles.previewImage}
             />
-            <SecondaryButton
-              title="Increase"
-              onPress={() => setProgress((p) => Math.min(1, p + 0.1))}
-              style={{ flex: 1 }}
+          </View>
+
+          <View style={styles.previewBlock}>
+            <Subtitle style={styles.imageTitle}>...and finish the scene</Subtitle>
+            <Image
+              source={require('@/assets/images/run3.png')}
+              style={styles.previewImage}
             />
-          </Row>
+          </View>
 
-          <BodyText>Loading Spinner:</BodyText>
-          <LoadingSpinner />
-        </Column>
-
-        {/* ====================== COMPOSITE TEST ====================== */}
-
-        {/* 1) Upload: VideoSourceCard + Gallery/Camera */}
-        <Column style={{ gap: 8 }}>
-          <Subtitle>Composite: Upload / VideoSourceCard</Subtitle>
-          <VideoSourceCard
-            title="Choose video source"
-            description="Simulated upload source selection"
-          >
-            <GalleryPickerButton onPress={() => console.log("Open gallery")} />
-            <CameraRecordButton onPress={() => console.log("Open camera")} />
-          </VideoSourceCard>
-        </Column>
-
-        {/* 2) History: IntervalSelector */}
-        <Column style={{ gap: 8 }}>
-          <Subtitle>Composite: History / IntervalSelector</Subtitle>
-          <IntervalSelector
-            selectedValue={interval}
-            onSelect={(v) => {
-              console.log("Interval selected:", v);
-              setInterval(v);
-            }}
+          <QualityTipCard
+            icon="sunny-outline"
+            title="Lighting & Visibility"
+            description="Record in a bright environment where your whole body is clearly visible."
+            bullets={[
+              'Avoid strong backlight.',
+              'Make sure your face, hips, knees and feet are not in the dark.',
+              'Prefer natural daylight or evenly distributed indoor light.',
+            ]}
+            //relatedCheck="lighting_check"
           />
-        </Column>
 
-        {/* 3) History: BodyPartSelector */}
-        <Column style={{ gap: 8 }}>
-          <Subtitle>Composite: History / BodyPartSelector</Subtitle>
-          <BodyPartSelector
-            selectedPart={bodyPart}
-            onSelect={(part) => {
-              console.log("Body part selected:", part);
-              setBodyPart(part);
-            }}
+          <QualityTipCard
+            icon="videocam-outline"
+            title="Camera Position & Angle"
+            description="Place the camera so we can see your full body during the whole movement."
+            bullets={[
+              'Camera should be placed to a sttable surface or should be gripped by a tripod.',
+              'The height of the camera should be above at least 0.5 meter above the ground, at most 1.5 meter.',
+              'Stand in the left or right side of the scene and start to run until other edge of the scene.',
+              'Avoid front or back angles.The best angle is side view (90 degrees).',
+              'Make sure the camera is not tilted too much (keep it level).',
+            ]}
+            //relatedCheck="framing_and_visibility_check"
           />
-        </Column>
 
-        {/* 4) History: MetricCard */}
-        <Column style={{ gap: 8 }}>
-          <Subtitle>Composite: History / MetricCard</Subtitle>
-          <Row style={{ gap: 10 }}>
-            <MetricCard
-              label="Cadence"
-              value="172"
-              unit="steps/min"
-              trend="up"
-              trendText="Better than last run"
-              style={{ flex: 1 }}
-            />
-            <MetricCard
-              label="Ground contact"
-              value="260"
-              unit="ms"
-              trend="down"
-              trendText="Slightly increased"
-              style={{ flex: 1 }}
-            />
-          </Row>
-        </Column>
+          <QualityTipCard
+            icon="people-outline"
+            title="One Athlete, Clear Background"
+            description="The model should focus only on you with minimal distractions in the background. These tips are not mandatory but help improve accuracy."
+            bullets={[
+              'Only one person should be visible in the frame.',
+              'Avoid crowded pists and mirrors directly behind you.',
+              'Choose a simple background (if possible).',
+            ]}
+            //relatedCheck="single_person_check"
+          />
 
-        {/* 5) Tips: AccordionItem */}
-        <Column style={{ gap: 8, marginBottom: 32 }}>
-          <Subtitle>Composite: Tips / AccordionItem</Subtitle>
-          <AccordionItem title="Camera angle tip">
-            Always place your camera at hip height and make sure your full body is visible
-            during the entire run cycle.
-          </AccordionItem>
-          <AccordionItem title="Lighting tip">
-            Prefer shooting in daylight or in a well-lit area to help the model track your
-            joints accurately.
-          </AccordionItem>
-        </Column>
-      </Column>
-    </ScrollScreen>
+          
+
+        
+
+          <QualityTipCard
+            icon="image-outline"
+            title="Orientation & Duration"
+            description="Use a clear orientation and enough frames for reliable analysis."
+            bullets={[
+              'Use the recommended orientation (portrait or landscape) shown in the app.',
+              'Record for the whole set or at least 3-5 seconds.',
+              'Avoid super short clips under a few seconds.',
+            ]}
+            //relatedCheck="aspect_ratio_and_duration_check"
+          />
+
+          
+
+          {/* -------------------- FORM / KOŞU / HAREKET TAVSİYELERİ (AKORDİYON) -------------------- */}
+          <SectionTitle style={{ marginTop: 32 }}>Form & Movement Tips</SectionTitle>
+
+          <AccordionSection
+            title="Running Posture Tips"
+            items={[
+              "Keep your head neutral and look forward — avoid looking down at your shoes.",
+              "Maintain a tall posture with your chest open to support proper breathing.",
+              "Lean slightly forward from the ankles, not the waist or lower back.",
+              "Keep your hips stable and centered under your body.",
+            ]}
+          />
+
+          <AccordionSection
+            title="Foot Strike & Cadence Tips"
+            items={[
+              "Aim to land softly under your center of mass — avoid overstriding.",
+              "Your foot should land beneath your hips instead of far in front.",
+              "Try to keep a consistent cadence between 160–180 steps per minute.",
+              "Focus on quick, light steps rather than long, heavy strides.",
+            ]}
+          />
+
+          <AccordionSection
+            title="Upper Body Mechanics Tips"
+            items={[
+              "Relax your shoulders — avoid shrugging or tightening your neck.",
+              "Keep your arms bent around 90°, swinging naturally front to back.",
+              "Avoid crossing your arms across your chest; keep movement in the sagittal plane.",
+              "Let your hands stay relaxed — imagine holding a chip without crushing it.",
+            ]}
+          />
+
+          <AccordionSection
+            title="Breathing Tips"
+            items={[
+              "Use rhythmic breathing (e.g., inhale for 2 steps, exhale for 2 steps).",
+              "Keep your chest open to allow deeper, more efficient breaths.",
+              "Breathe through both your nose and mouth during moderate and fast runs.",
+              "Avoid shallow breathing — focus on belly expansion, not just chest rise.",
+            ]}
+          />
+
+          <AccordionSection
+            title="Common Running Mistakes to Avoid"
+            items={[
+              "Avoid overstriding, which increases impact and slows you down.",
+              "Do not lean too far forward or backward — it disrupts balance.",
+              "Avoid clenching fists or stiffening your shoulders.",
+              "Do not bounce excessively; vertical oscillation wastes energy.",
+              "Don’t look down constantly — it affects posture and stride.",
+            ]}
+          />
+
+        </ContentWrapper>
+      </ScrollScreen>
+    </ScreenContainer>
   );
+}
+
+/* -------------------------------------------------------------------------- */
+/*                               REUSABLE PARTS                               */
+/* -------------------------------------------------------------------------- */
+
+type QualityTipCardProps = {
+  icon: string;
+  title: string;
+  description: string;
+  bullets: string[];
+  relatedCheck?: string;
 };
 
-export default UIPlayground;
+function QualityTipCard({
+  icon,
+  title,
+  description,
+  bullets,
+  relatedCheck,
+}: QualityTipCardProps) {
+  return (
+    <View style={styles.card}>
+      <Row style={styles.cardHeaderRow}>
+        <Ionicons name={icon as any} size={24} />
+        <Subtitle style={styles.cardTitle}>{title}</Subtitle>
+      </Row>
+
+      {relatedCheck && (
+        <BodyText style={styles.relatedCheckText}>
+          Related check: <BodyText style={{ fontWeight: '600' }}>{relatedCheck}</BodyText>
+        </BodyText>
+      )}
+
+      <BodyText style={styles.cardDescription}>{description}</BodyText>
+
+      <View style={styles.bulletList}>
+        {bullets.map((b, index) => (
+          <Row key={index} style={styles.bulletRow}>
+            <BodyText style={styles.bulletDot}>{'\u2022'}</BodyText>
+            <BodyText style={styles.bulletText}>{b}</BodyText>
+          </Row>
+        ))}
+      </View>
+    </View>
+  );
+}
+
+type AccordionSectionProps = {
+  title: string;
+  items: string[];
+};
+
+function AccordionSection({ title, items }: AccordionSectionProps) {
+  const [open, setOpen] = useState(false);
+
+  const toggle = () => {
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    setOpen((prev) => !prev);
+  };
+
+  return (
+    <View style={styles.accordionContainer}>
+      <TouchableOpacity style={styles.accordionHeader} onPress={toggle} activeOpacity={0.7}>
+        <Subtitle style={styles.accordionTitle}>{title}</Subtitle>
+        <Ionicons
+          name={open ? 'chevron-up-outline' : 'chevron-down-outline'}
+          size={20}
+        />
+      </TouchableOpacity>
+
+      {open && (
+        <View style={styles.accordionContent}>
+          {items.map((item, idx) => (
+            <Row key={idx} style={styles.bulletRow}>
+              <BodyText style={styles.bulletDot}>{'\u2022'}</BodyText>
+              <BodyText style={styles.bulletText}>{item}</BodyText>
+            </Row>
+          ))}
+        </View>
+      )}
+    </View>
+  );
+}
+
+function SectionTitle({ children, style }: { children: React.ReactNode; style?: any }) {
+  return (
+    <Subtitle style={[styles.sectionTitle, style]}>
+      {children}
+    </Subtitle>
+  );
+}
+
+/* -------------------------------------------------------------------------- */
+/*                                   STYLES                                   */
+/* -------------------------------------------------------------------------- */
+
+const styles = StyleSheet.create({
+  headerTitle: {
+    marginBottom: 8,
+  },
+  headerSubtitle: {
+    marginBottom: 20,
+  },
+  infoAlert: {
+    marginBottom: 24,
+  },
+  sectionTitle: {
+    marginBottom: 12,
+  },
+  card: {
+    backgroundColor: '#ffffff',
+    padding: 16,
+    borderRadius: 16,
+    shadowColor: '#000',
+    shadowOpacity: 0.06,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 2,
+    marginBottom: 20,
+  },
+  cardHeaderRow: {
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  cardTitle: {
+    marginLeft: 8,
+  },
+  relatedCheckText: {
+    marginBottom: 4,
+    opacity: 0.7,
+  },
+  cardDescription: {
+    marginBottom: 8,
+  },
+  bulletList: {
+    marginTop: 4,
+  },
+  bulletRow: {
+    alignItems: 'flex-start',
+    marginBottom: 4,
+  },
+  bulletDot: {
+    marginRight: 6,
+  },
+  bulletText: {
+    flex: 1,
+  },
+  accordionContainer: {
+    backgroundColor: '#ffffff',
+    borderRadius: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    marginBottom: 12,
+    shadowColor: '#000',
+    shadowOpacity: 0.04,
+    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 1,
+  },
+  accordionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  accordionTitle: {
+    flex: 1,
+    marginRight: 8,
+  },
+  accordionContent: {
+    marginTop: 8,
+  },
+  previewBlock: {
+    marginBottom: 16,
+  },
+  imageTitle: {
+    marginBottom: 8,
+    fontWeight: '600',
+  },
+  previewImage: {
+    width: '100%',
+    height: 220,
+    borderRadius: 16,
+    marginBottom: 0,
+    resizeMode: 'contain',
+    backgroundColor: '#000',
+  },
+  
+
+});
+
+function ContentWrapper({ children }: { children: React.ReactNode }) {
+  return (
+    <View style={contentStyles.wrapper}>
+      {children}
+    </View>
+  );
+}
+
+const contentStyles = StyleSheet.create({
+  wrapper: {
+    width: '100%',
+    maxWidth: 600, // tablet ve büyük ekranlarda çok genişlemesin
+    alignSelf: 'center',
+    paddingHorizontal: 16, // sağ-sol boşluk
+  },
+});
+
+
