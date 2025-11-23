@@ -1,9 +1,9 @@
 import React, { ReactNode } from "react";
-import { StyleSheet, Text, TextStyle } from "react-native";
+import { StyleProp, StyleSheet, Text, TextStyle } from "react-native";
 
 interface SubtitleProps {
   children: ReactNode;
-  style?: TextStyle;
+  style?: StyleProp<TextStyle>;
   numberOfLines?: number;
 }
 
