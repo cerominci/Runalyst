@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "app-comp-layout",
-    "slug": "app-comp-layout",
+    "name": "runalyst",
+    "slug": "runalyst",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",

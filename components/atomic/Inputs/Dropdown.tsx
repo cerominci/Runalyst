@@ -1,14 +1,14 @@
 import { Ionicons } from "@expo/vector-icons";
 import React, { useState } from "react";
 import {
-    FlatList,
-    Modal,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    TouchableWithoutFeedback,
-    View,
-    ViewStyle,
+  FlatList,
+  Modal,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  TouchableWithoutFeedback,
+  View,
+  ViewStyle,
 } from "react-native";
 
 interface DropdownProps {
@@ -78,26 +78,30 @@ const Dropdown: React.FC<DropdownProps> = ({
 const styles = StyleSheet.create({
   container: {
     width: "100%",
+    marginBottom: 8,
   },
   label: {
-    fontSize: 13,
+    fontSize: 14,
     color: "#6B7280",
-    fontWeight: "500",
-    marginBottom: 4,
+    fontWeight: "600",
+    marginBottom: 8,
   },
   selectBox: {
-    borderWidth: 1,
+    borderWidth: 1.5,
     borderColor: "#CBD5E1",
-    borderRadius: 10,
-    paddingVertical: 12,
-    paddingHorizontal: 14,
+    borderRadius: 12,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
+    backgroundColor: "#FFFFFF",
+    minHeight: 50,
   },
   selectedText: {
-    fontSize: 15,
+    fontSize: 16,
     color: "#1E293B",
+    fontWeight: "500",
   },
   placeholder: {
     color: "#9CA3AF",

@@ -1,12 +1,12 @@
 // components/composite/History/BodyPartSelector.tsx
 import React from "react";
 import {
-    ScrollView,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
-    ViewStyle,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+  ViewStyle,
 } from "react-native";
 import Subtitle from "../../atomic/Typography/Subtitle";
 
@@ -65,19 +65,24 @@ const BodyPartSelector: React.FC<BodyPartSelectorProps> = ({
 const styles = StyleSheet.create({
   container: {
     width: "100%",
-    marginTop: 12,
+    marginTop: 20,
+    marginBottom: 8,
   },
   scrollContent: {
-    paddingVertical: 8,
-    columnGap: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 0,
+    paddingRight: 20, // Add right padding for scroll
+    columnGap: 10,
   },
   chip: {
-    paddingHorizontal: 12,
-    paddingVertical: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
     borderRadius: 999,
-    borderWidth: 1,
+    borderWidth: 1.5,
     borderColor: "#CBD5E1",
     backgroundColor: "#FFFFFF",
+    minHeight: 40,
+    justifyContent: "center",
   },
   chipActive: {
     backgroundColor: "#1D4ED8",

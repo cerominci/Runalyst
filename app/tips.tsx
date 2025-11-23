@@ -1,13 +1,12 @@
+import Banner from '@/components/atomic/Layout/Banner';
 import Row from '@/components/atomic/Layout/Row';
 import ScreenContainer from '@/components/atomic/Layout/ScreenContainer';
 import ScrollScreen from '@/components/atomic/Layout/ScrollScreen';
 import BodyText from '@/components/atomic/Typography/BodyText';
 import Subtitle from '@/components/atomic/Typography/Subtitle';
-import Title from '@/components/atomic/Typography/Title';
 import Ionicons from '@expo/vector-icons/Ionicons';
+import { useRouter } from 'expo-router';
 import { Image } from 'react-native';
-
-
 
 import React, { useState } from 'react';
 import { LayoutAnimation, Platform, StyleSheet, TouchableOpacity, UIManager, View } from 'react-native';
@@ -18,15 +17,17 @@ if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental
 }
 
 export default function TipsScreen() {
+  const router = useRouter();
+
   return (
     <ScreenContainer>
       <ScrollScreen>
         <ContentWrapper>
-          
+          <Banner
+            title="Tips for Better Analysis"
+            onBackPress={() => router.back()}
+          />
 
-
-          {/* HEADER */}
-          <Title style={styles.headerTitle}>Tips for Better Analysis</Title>
           <Subtitle style={styles.headerSubtitle}>
             Get the most accurate feedback by following these video and form tips.
           </Subtitle>
@@ -116,7 +117,7 @@ export default function TipsScreen() {
           
 
           {/* -------------------- FORM / KOŞU / HAREKET TAVSİYELERİ (AKORDİYON) -------------------- */}
-          <SectionTitle style={{ marginTop: 32 }}>Form & Movement Tips</SectionTitle>
+          <SectionTitle style={{ marginTop: 20 }}>Form & Movement Tips</SectionTitle>
 
           <AccordionSection
             title="Running Posture Tips"
@@ -271,32 +272,26 @@ function SectionTitle({ children, style }: { children: React.ReactNode; style?: 
 /* -------------------------------------------------------------------------- */
 
 const styles = StyleSheet.create({
-  headerTitle: {
-    marginBottom: 8,
-  },
   headerSubtitle: {
-    marginBottom: 20,
+    marginBottom: 12,
   },
   infoAlert: {
-    marginBottom: 24,
+    marginBottom: 16,
   },
   sectionTitle: {
-    marginBottom: 12,
+    marginBottom: 8,
   },
   card: {
     backgroundColor: '#ffffff',
-    padding: 16,
+    padding: 12,
     borderRadius: 16,
-    shadowColor: '#000',
-    shadowOpacity: 0.06,
-    shadowRadius: 6,
-    shadowOffset: { width: 0, height: 2 },
+    boxShadow: '0px 2px 6px 0px rgba(0, 0, 0, 0.06)',
     elevation: 2,
-    marginBottom: 20,
+    marginBottom: 12,
   },
   cardHeaderRow: {
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: 6,
   },
   cardTitle: {
     marginLeft: 8,
@@ -306,14 +301,14 @@ const styles = StyleSheet.create({
     opacity: 0.7,
   },
   cardDescription: {
-    marginBottom: 8,
+    marginBottom: 6,
   },
   bulletList: {
     marginTop: 4,
   },
   bulletRow: {
     alignItems: 'flex-start',
-    marginBottom: 4,
+    marginBottom: 3,
   },
   bulletDot: {
     marginRight: 6,
@@ -325,12 +320,9 @@ const styles = StyleSheet.create({
     backgroundColor: '#ffffff',
     borderRadius: 16,
     paddingHorizontal: 16,
-    paddingVertical: 12,
-    marginBottom: 12,
-    shadowColor: '#000',
-    shadowOpacity: 0.04,
-    shadowRadius: 4,
-    shadowOffset: { width: 0, height: 2 },
+    paddingVertical: 10,
+    marginBottom: 8,
+    boxShadow: '0px 2px 4px 0px rgba(0, 0, 0, 0.04)',
     elevation: 1,
   },
   accordionHeader: {
@@ -343,13 +335,13 @@ const styles = StyleSheet.create({
     marginRight: 8,
   },
   accordionContent: {
-    marginTop: 8,
+    marginTop: 6,
   },
   previewBlock: {
-    marginBottom: 16,
+    marginBottom: 12,
   },
   imageTitle: {
-    marginBottom: 8,
+    marginBottom: 6,
     fontWeight: '600',
   },
   previewImage: {
@@ -377,7 +369,7 @@ const contentStyles = StyleSheet.create({
     width: '100%',
     maxWidth: 600, // tablet ve büyük ekranlarda çok genişlemesin
     alignSelf: 'center',
-    paddingHorizontal: 16, // sağ-sol boşluk
+    paddingHorizontal: 8, // sağ-sol boşluk
   },
 });
 

@@ -10,7 +10,7 @@ interface IntervalSelectorProps {
   style?: ViewStyle;
 }
 
-const DEFAULT_OPTIONS = ["Last 2 days", "Last 10 days", "Last 4 videos"];
+const DEFAULT_OPTIONS = ["Last 2 days", "Last 10 days", "Last 4 videos", "Last month"];
 
 const IntervalSelector: React.FC<IntervalSelectorProps> = ({
   selectedValue,

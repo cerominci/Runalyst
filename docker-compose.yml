@@ -1,5 +1,5 @@
 services:
-  expo: #expo is our service name in docker compose. expo-app is the container name in docker. -edd
+  expo: #expo is our service name in docker compose. expo-app2 is the container name in docker. -edd
     build: .
     container_name: expo-app2
     ports:
