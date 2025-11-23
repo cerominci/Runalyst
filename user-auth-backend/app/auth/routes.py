@@ -1,12 +1,17 @@
+import uuid
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.orm import Session
+
+from app.deps.auth import get_current_user
 from app.deps.db import get_db
 from app.models.user import User
 from app.auth.schemas import SignUpIn, TokenOut, UserOut
 from app.core.security import hash_password, verify_password, create_access_token, decode_access_token
 from app.auth.schemas import PasswordResetRequestIn, PasswordResetIn
 from app.core.security import create_password_reset_token, decode_password_reset_token
+from app.services.storage import supabase_client
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 bearer = HTTPBearer(auto_error=False)
@@ -62,35 +67,9 @@ def login(payload: SignUpIn, db: Session = Depends(get_db)):
     token = create_access_token(sub=str(user.id))
     return TokenOut(access_token=token)
 
-
-
 @router.get("/me", response_model=UserOut)
-def me(
-    credentials: HTTPAuthorizationCredentials | None = Depends(bearer),
-    db: Session = Depends(get_db)
-):
-    if not credentials or credentials.scheme.lower() != "bearer":
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Not authenticated"
-        )
-    
-    user_id = decode_access_token(credentials.credentials)
-    if not user_id:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid or expired token"
-        )
-    
-    user = db.query(User).filter(User.id == int(user_id)).first()
-    if not user or not user.is_active:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="User inactive or not found"
-        )
-    
-    # FIX: Return the ORM object directly here too
-    return user
+def me(current_user: User = Depends(get_current_user)):
+    return current_user
 
 @router.post("/test")
 def test_endpoint():
@@ -167,34 +146,11 @@ def reset_password(
 #will be updated in future together along with signup to include email confirmation flows
 @router.delete("/me", status_code=status.HTTP_200_OK)
 def delete_me(
-        credentials: HTTPAuthorizationCredentials | None = Depends(bearer),
-        db: Session = Depends(get_db)
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
 ):
-    """
-    Delete the currently authenticated user's account.
-    """
-    if not credentials or credentials.scheme.lower() != "bearer":
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Not authenticated"
-        )
-
-    user_id = decode_access_token(credentials.credentials)
-    if not user_id:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid or expired token"
-        )
-
-    user = db.query(User).filter(User.id == int(user_id)).first()
-    if not user or not user.is_active:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="User inactive or not found"
-        )
-
     try:
-        db.delete(user)
+        db.delete(current_user)
         db.commit()
     except Exception as e:
         db.rollback()
@@ -203,5 +159,26 @@ def delete_me(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to delete account"
         )
-
     return {"detail": "Account deleted successfully"}
+
+
+@router.post("/generate-upload-url", status_code=status.HTTP_200_OK)
+def create_upload_url(current_user: User = Depends(get_current_user)):
+    bucket_name = "user_videos_test"
+    unique_filename = f"{current_user.id}/{uuid.uuid4()}.mp4"
+
+    try:
+        signed_url_response = supabase_client.storage.from_(bucket_name).create_signed_upload_url(
+            path=unique_filename
+        )
+        #print("DEBUG: Supabase response:", signed_url_response)
+        return {
+            "upload_url": signed_url_response['signed_url'],
+            "path": signed_url_response['path']
+        }
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to create upload URL: {str(e)}"
+        )

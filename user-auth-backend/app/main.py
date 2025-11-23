@@ -1,9 +1,9 @@
-import logging
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, status
 from fastapi.middleware.cors import CORSMiddleware
 from app.db.session import db_ping
-from app.auth.routes import router as auth_router
+from app.auth import routes as auth_router
+from app.runs import routes as runs_router
 
 
 @asynccontextmanager
@@ -56,4 +56,10 @@ def health_db():
 
 
 # Include routers
-app.include_router(auth_router)
+app.include_router(auth_router.router)
+
+app.include_router(runs_router.router)
+
+@app.get("/")
+def read_root():
+    return {"message": "Welcome to the Runalyst API"}

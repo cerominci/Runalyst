@@ -7,6 +7,10 @@ from logging.config import fileConfig
 from alembic import context
 from sqlalchemy import create_engine, pool
 
+from app.db.base import Base
+from app.models.user import User
+from app.models.run import Run
+
 # --- Make project root importable ---
 CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))   # …/migrations
 PROJECT_ROOT = os.path.dirname(CURRENT_DIR)                 # …/user-auth-backend
@@ -33,7 +37,7 @@ if not db_url:
 print(f"[alembic] using DATABASE_URL = {db_url}")
 
 # We'll write migrations manually for now
-target_metadata = None
+target_metadata = Base.metadata
 
 def run_migrations_offline():
     context.configure(

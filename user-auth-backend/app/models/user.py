@@ -1,6 +1,6 @@
 from datetime import datetime
 from sqlalchemy import String, Boolean, Integer, DateTime, func
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.db.base import Base
 
 
@@ -33,6 +33,8 @@ class User(Base):
         nullable=False, 
         server_default=func.now()
     )
+
+    runs = relationship("Run", back_populates="owner", cascade="all, delete-orphan")
     
     def __repr__(self) -> str:
         return f"<User(id={self.id}, email='{self.email}')>"
