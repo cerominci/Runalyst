@@ -9,7 +9,7 @@ import React from "react";
 import { StyleSheet, View } from "react-native";
 
 export default function HomeScreen() {
-  const router = useRouter();
+const router = useRouter();
 
   const handleGuidePress = () => {
     router.push("/tips");
