@@ -18,22 +18,29 @@ def create_run_record(
 ):
     try:
         new_run = Run(
-            video_path=payload.video_path,
-            title=payload.title,
-            user_id=current_user.id
-        )
+                    video_path=payload.video_path,
+                    title=payload.title,
+                    user_id=current_user.id
+                )
+       new_run.status = "queued"
 
-        db.add(new_run)
-        db.commit()
-        db.refresh(new_run)
+       db.add(new_run)
+       db.commit()
+       db.refresh(new_run)
 
-        return new_run
+       message_to_send = {
+           "run_id": new_run.id,
+           "video_path": new_run.video_path
+       }
+       send_message_to_queue(message_body=message_to_send)
 
-    except Exception as e:
-        db.rollback()
-        # in prod, log it
-        print(f"Error creating run record: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to create run record in the database."
-        )
+       return new_run
+
+   except Exception as e:
+       db.rollback()
+       # in prod, log it
+       print(f"Error creating run record: {e}")
+       raise HTTPException(
+           status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+           detail="Failed to create run record in the database."
+      )
