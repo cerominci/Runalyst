@@ -8,12 +8,12 @@ import ScreenContainer from "@/components/atomic/Layout/ScreenContainer";
 import ScrollScreen from "@/components/atomic/Layout/ScrollScreen";
 import BodyText from "@/components/atomic/Typography/BodyText";
 import Subtitle from "@/components/atomic/Typography/Subtitle";
-import {createRunRecord, generateUploadUrl, getToken} from "@/utils/devAuth";
+import { getToken } from "@/utils/devAuth";
 import * as ImagePicker from "expo-image-picker";
 import { useRouter } from "expo-router";
 import { VideoView, useVideoPlayer } from "expo-video";
 import React, { useMemo, useState } from "react";
-import { Alert, StyleSheet, View } from "react-native";
+import { Alert, Platform, StyleSheet, View } from "react-native";
 
 export default function GalleryPressScreen() {
   const router = useRouter();
@@ -80,60 +80,54 @@ export default function GalleryPressScreen() {
   }, [selectedVideo]);
 
   const uploadVideoAsync = async () => {
-    const TOKEN = await getToken(); //TODO: Check this
-    console.log("this is token:" + TOKEN);
+    const TOKEN = await getToken();
     if (!fileInfo) {
-      Alert.alert('Pick a video first');
+      Alert.alert("Pick a video first");
       return;
     }
 
+    setIsUploading(true);
     try {
-      setIsUploading(true);
-
-      // 1) get the one-time upload target
       const uploadUrl = await fetchUploadUrlAsync(fileInfo.name, fileInfo.type);
 
-      // 2) build multipart and POST to that upload URL
-      const form = new FormData();
-      // @ts-ignore React Native file shape
-      form.append('video', {
-        uri: fileInfo.uri,
-        name: fileInfo.name,
-        type: fileInfo.type,
-      });
+      // IMPORTANT: on web, `fileInfo.uri` is typically a blob: URL.
+      // Turn it into a real Blob and upload that.
+      if (Platform.OS === "web") {
+        const videoBlob = await (await fetch(fileInfo.uri)).blob();
 
-      const res = await fetch(uploadUrl, {
-        method: 'PUT',
-        headers: { Authorization: 'Bearer ' + TOKEN }, // if your upload URL needs it
-        body: form, // let RN set the multipart boundary; do NOT set Content-Type
-      });
+        const res = await fetch(uploadUrl, {
+          method: "PUT",
+          headers: {
+            // For presigned PUT URLs, Content-Type matters.
+            "Content-Type": fileInfo.type,
+            // DON'T send Authorization to a presigned storage URL.
+          },
+          body: videoBlob,
+        });
 
-      if (!res.ok) {
-        const text = await res.text().catch(() => '');
-        throw new Error(`Upload failed (${res.status}): ${text}`);
-      }else{
-          try{
-              const response = await createRunRecord(uploadUrl, "run");
-              if(response != null) {
-                  console.log(response);
-              }
-              else {
-                  throw new Error("Create run response is null");
-              }
-          }catch(e){
-              console.error("Create run record failed" +  e);
-          }
+        if (!res.ok) throw new Error(`Upload failed (${res.status}): ${await res.text()}`);
+        Alert.alert("Success", "Video uploaded successfully!");
+        return;
       }
 
+      // Native path (keep your existing multipart if it already works)
+      const form = new FormData();
+      // @ts-ignore React Native file shape
+      form.append("video", { uri: fileInfo.uri, name: fileInfo.name, type: fileInfo.type });
 
-      Alert.alert('Success', 'Video uploaded successfully!');
-    } catch (err: any) {
-      Alert.alert('Upload error', err?.message ?? 'Unknown error');
+      const res = await fetch(uploadUrl, {
+        method: "PUT",
+        headers: { Authorization: "Bearer " + TOKEN },
+        body: form,
+      });
+
+      if (!res.ok) throw new Error(`Upload failed (${res.status}): ${await res.text()}`);
+      Alert.alert("Success", "Video uploaded successfully!");
+    } catch (e: any) {
+      Alert.alert("Upload error", e?.message ?? "Unknown error");
     } finally {
       setIsUploading(false);
     }
-
-
   };
 
   const handleStartAnalysis = () => {
