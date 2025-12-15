@@ -25,11 +25,13 @@ export default function GalleryPressScreen() {
     p.loop = true;
     p.play();
   });
-  const TOKEN = getToken(); //TODO: Check this
+  
   const API_BASE = "https://runalyst-backend.onrender.com";
   const GENERATE_URL_ENDPOINT = `${API_BASE}/auth/generate-upload-url`;
 
   const fetchUploadUrlAsync = async (name?: string, type?: string): Promise<string> => {
+    const TOKEN = await getToken(); //TODO: Check this
+    console.log("this is token:" + TOKEN);
     const res = await fetch(GENERATE_URL_ENDPOINT, {
       method: 'POST', // change to 'POST' and add body if your API expects metadata
       headers: {
@@ -78,6 +80,8 @@ export default function GalleryPressScreen() {
   }, [selectedVideo]);
 
   const uploadVideoAsync = async () => {
+    const TOKEN = await getToken(); //TODO: Check this
+    console.log("this is token:" + TOKEN);
     if (!fileInfo) {
       Alert.alert('Pick a video first');
       return;
@@ -153,7 +157,7 @@ export default function GalleryPressScreen() {
                     allowsFullscreen
                     allowsPictureInPicture
                   />
-                  <InfoAlert message="Video selected successfully. You can now start the analysis." />
+                  <InfoAlert message={"Video selected successfully. You can now start the analysis."} />
                 </View>
               ) : (
                 <InfoAlert message="Tap the button below to select a video from your gallery." />
