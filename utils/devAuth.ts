@@ -12,6 +12,15 @@ const API_BASE_URL = 'https://runalyst-backend.onrender.com';
 // Token storage key
 const TOKEN_STORAGE_KEY = 'runalyst_auth_token';
 
+export type Run = {
+    id: number;
+    title: string | null;
+    video_path: string;
+    analysis_results: Record<string, any> | null;
+    created_at: string; // ISO datetime string
+    user_id: number;
+};
+
 /**
  * Platform-specific token storage helpers
  */
@@ -306,4 +315,37 @@ export async function generateUploadUrl(): Promise<{ upload_url: string; path: s
     console.error('Generate upload URL error:', error);
     throw error;
   }
+}
+
+export async function createRunRecord(video_path: string, title: string): Promise<Run | void> {
+    try {
+        const token = await getToken();
+        if (!token) {
+            throw new Error('No authentication token found');
+        }
+        const response = await fetch(`${API_BASE_URL}/runs`, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                video_path,
+                title,
+            })
+        })
+        if (!response.ok) {
+            if (response.status === 401) {
+                await logout();
+                throw new Error('Authentication token is invalid');
+            }
+            const error = await response.json().catch(() => ({message: 'Failed to create run record' }));
+            throw new Error(error.message || `Failed to create run record: ${response.statusText}`);
+            const data = await response.json();
+            return data;
+        }
+    } catch (error: any){
+        console.error('Create run record failed:', error);
+        throw error;
+    }
 }

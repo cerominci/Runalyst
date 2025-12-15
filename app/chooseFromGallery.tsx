@@ -8,7 +8,7 @@ import ScreenContainer from "@/components/atomic/Layout/ScreenContainer";
 import ScrollScreen from "@/components/atomic/Layout/ScrollScreen";
 import BodyText from "@/components/atomic/Typography/BodyText";
 import Subtitle from "@/components/atomic/Typography/Subtitle";
-import { getToken } from "@/utils/devAuth";
+import {createRunRecord, generateUploadUrl, getToken} from "@/utils/devAuth";
 import * as ImagePicker from "expo-image-picker";
 import { useRouter } from "expo-router";
 import { VideoView, useVideoPlayer } from "expo-video";
@@ -111,7 +111,20 @@ export default function GalleryPressScreen() {
       if (!res.ok) {
         const text = await res.text().catch(() => '');
         throw new Error(`Upload failed (${res.status}): ${text}`);
+      }else{
+          try{
+              const response = await createRunRecord(uploadUrl, "run");
+              if(response != null) {
+                  console.log(response);
+              }
+              else {
+                  throw new Error("Create run response is null");
+              }
+          }catch(e){
+              console.error("Create run record failed" +  e);
+          }
       }
+
 
       Alert.alert('Success', 'Video uploaded successfully!');
     } catch (err: any) {
@@ -119,6 +132,8 @@ export default function GalleryPressScreen() {
     } finally {
       setIsUploading(false);
     }
+
+
   };
 
   const handleStartAnalysis = () => {

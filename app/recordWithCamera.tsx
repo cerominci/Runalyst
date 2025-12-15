@@ -1,7 +1,7 @@
 import PrimaryButton from "@/components/atomic/Button/PrimaryButton";
 import SecondaryButton from "@/components/atomic/Button/SecondaryButton";
 import LoadingSpinner from "@/components/atomic/Feedback/LoadingSpinner";
-import { generateUploadUrl, login, register } from "@/utils/devAuth";
+import {createRunRecord, generateUploadUrl, login, register} from "@/utils/devAuth";
 import { runPreflightCheck } from "@/utils/preflightCheck";
 import FontAwesome6 from "@expo/vector-icons/FontAwesome6";
 import {
@@ -257,22 +257,7 @@ export default function App() {
     
     try {
       console.log('Starting upload process...');
-      
-      // Step 1: Register user (if not already registered, this will fail but that's ok)
-      try {
-        console.log('Attempting to register user...');
-        await register(DEV_EMAIL, DEV_PASSWORD);
-        console.log('User registered successfully');
-      } catch (registerError: any) {
-        // User might already exist, that's fine - we'll try to login
-        console.log('Registration failed (user may already exist):', registerError.message);
-      }
-      
-      // Step 2: Login to get token
-      console.log('Logging in...');
-      const loginResult = await login(DEV_EMAIL, DEV_PASSWORD);
-      console.log('Login successful, token stored');
-      
+
       // Step 3: Get upload URL
       console.log('Getting upload URL...');
       const { upload_url, path } = await generateUploadUrl();
@@ -305,6 +290,18 @@ export default function App() {
       
       if (!uploadResponse.ok) {
         throw new Error(`Video upload failed: ${uploadResponse.statusText}`);
+      }else{
+          try{
+              const response = await createRunRecord(upload_url, "run");
+              if(response != null) {
+                  console.log(response);
+              }
+              else {
+                  throw new Error("Create run response is null");
+              }
+          }catch(e){
+              console.error("Create run record failed" +  e);
+          }
       }
       
       console.log('Video uploaded successfully to:', path);
