@@ -18,7 +18,7 @@ const router = useRouter();
   };
 
   const handleStartAnalyzing = () => {
-    router.push("/camera" as Href);
+    router.push("/analysis" as Href);
   };
 
   return (

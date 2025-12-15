@@ -18,11 +18,11 @@ export default function CameraScreen() {
   };
 
   const handleCameraPress = () => {
-    router.push("/cameraPress" as any);
+    router.push("/recordWithCamera" as any);
   };
 
   const handleGalleryPress = () => {
-    router.push("/galleryPress" as any);
+    router.push("/chooseFromGallery" as any);
   };
 
   return (
