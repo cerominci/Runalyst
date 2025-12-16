@@ -1,14 +1,10 @@
 import PrimaryButton from "@/components/atomic/Button/PrimaryButton";
 import LoadingSpinner from "@/components/atomic/Feedback/LoadingSpinner";
-import { login, loginWithApple, loginWithGoogle, register } from "@/utils/devAuth";
+import { login, loginWithApple, register } from "@/utils/devAuth";
 import * as AppleAuthentication from "expo-apple-authentication";
-import * as Google from "expo-auth-session/providers/google";
 import { useRouter } from "expo-router";
-import * as WebBrowser from "expo-web-browser";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
-
-WebBrowser.maybeCompleteAuthSession();
 
 export default function SignUpPage() {
   const router = useRouter();
@@ -16,57 +12,6 @@ export default function SignUpPage() {
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  const [googleRequest, googleResponse, googlePromptAsync] = Google.useAuthRequest({
-    androidClientId: process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID,
-    iosClientId: process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID,
-    webClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
-  });
-
-  const handleGoogleSignUp = async () => {
-    setIsLoading(true);
-    setError(null);
-  
-    try {
-      await googlePromptAsync();
-    } catch (err: any) {
-      setIsLoading(false);
-      setError(err?.message ?? "Google Sign-Up failed.");
-    }
-  };
-  
-  useEffect(() => {
-    (async () => {
-      if (!googleResponse) return;
-  
-      if (googleResponse.type === "success") {
-        const idToken = googleResponse.authentication?.idToken;
-  
-        if (!idToken) {
-          setError("Google Sign-In did not return an idToken.");
-          setIsLoading(false);
-          return;
-        }
-  
-        try {
-          await loginWithGoogle(idToken);
-          router.replace("/(tabs)");
-        } catch (err: any) {
-          setError(err?.message ?? "Google Sign-Up failed.");
-        } finally {
-          setIsLoading(false);
-        }
-      } else if (googleResponse.type === "error") {
-        setIsLoading(false);
-        setError("Google Sign-In failed.");
-      } else if (googleResponse.type === "dismiss") {
-        // user cancelled the flow
-        setIsLoading(false);
-      }
-    })();
-  }, [googleResponse]);
-  
-  
   const handleAppleSignUp = async () => {
     setIsLoading(true);
     setError(null);
@@ -205,11 +150,7 @@ export default function SignUpPage() {
             disabled={isLoading}
           />
         )}
-        <PrimaryButton
-            title="Continue with Google"
-            onPress={handleGoogleSignUp}
-            disabled={isLoading || !googleRequest}
-          />
+
         {isLoading && (
           <View style={styles.loadingContainer}>
             <LoadingSpinner size="small" />
