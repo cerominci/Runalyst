@@ -341,11 +341,30 @@ export async function createRunRecord(video_path: string, title: string): Promis
             }
             const error = await response.json().catch(() => ({message: 'Failed to create run record' }));
             throw new Error(error.message || `Failed to create run record: ${response.statusText}`);
-            const data = await response.json();
-            return data;
         }
     } catch (error: any){
         console.error('Create run record failed:', error);
         throw error;
     }
 }
+// utils/devAuth.ts
+export async function loginWithApple(identityToken: string) {
+  const res = await fetch(`${API_BASE_URL}/auth/apple`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ identity_token: identityToken }),
+  });
+
+  if (!res.ok) throw new Error(await res.text());
+
+  const data = await res.json();
+
+  // Expect the backend to return the same shape as /auth/login
+  if (!data.access_token) {
+    throw new Error("No access_token received from server (Apple login).");
+  }
+
+  await storeToken(data.access_token); // <- same as login()
+  return { access_token: data.access_token, token_type: data.token_type || "bearer" };
+}
+

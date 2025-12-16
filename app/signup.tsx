@@ -1,9 +1,10 @@
 import PrimaryButton from "@/components/atomic/Button/PrimaryButton";
 import LoadingSpinner from "@/components/atomic/Feedback/LoadingSpinner";
-import { login, register } from "@/utils/devAuth";
+import { login, loginWithApple, register } from "@/utils/devAuth";
+import * as AppleAuthentication from "expo-apple-authentication";
 import { useRouter } from "expo-router";
 import { useState } from "react";
-import { ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 
 export default function SignUpPage() {
   const router = useRouter();
@@ -11,6 +12,31 @@ export default function SignUpPage() {
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const handleAppleSignUp = async () => {
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const credential = await AppleAuthentication.signInAsync({
+        requestedScopes: [
+          AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
+          AppleAuthentication.AppleAuthenticationScope.EMAIL,
+        ],
+      });
+
+      if (!credential.identityToken) {
+        throw new Error("Apple Sign-In did not return an identity token.");
+      }
+
+      await loginWithApple(credential.identityToken);
+
+      router.replace("/(tabs)");
+    } catch (err: any) {
+      setError(err?.message ?? "Apple Sign-Up failed.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const handleSignUp = async () => {
     // Validation
@@ -117,6 +143,13 @@ export default function SignUpPage() {
           onPress={handleSignUp}
           disabled={isLoading}
         />
+        {Platform.OS === "ios" && (
+          <PrimaryButton
+            title="Continue with Apple"
+            onPress={handleAppleSignUp}
+            disabled={isLoading}
+          />
+        )}
 
         {isLoading && (
           <View style={styles.loadingContainer}>

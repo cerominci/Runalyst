@@ -1,9 +1,10 @@
 import PrimaryButton from "@/components/atomic/Button/PrimaryButton";
 import LoadingSpinner from "@/components/atomic/Feedback/LoadingSpinner";
-import { login } from "@/utils/devAuth";
+import { login, loginWithApple } from "@/utils/devAuth";
+import * as AppleAuthentication from "expo-apple-authentication";
 import { useRouter } from "expo-router";
 import { useState } from "react";
-import { StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { Platform, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 
 export default function SignInPage() {
   const router = useRouter();
@@ -11,6 +12,33 @@ export default function SignInPage() {
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const handleAppleSignIn = async () => {
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const credential = await AppleAuthentication.signInAsync({
+        requestedScopes: [
+          AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
+          AppleAuthentication.AppleAuthenticationScope.EMAIL,
+        ],
+      });
+
+      // identityToken is what your backend should verify.
+      if (!credential.identityToken) {
+        throw new Error("Apple Sign-In did not return an identity token.");
+      }
+
+      const result = await loginWithApple(credential.identityToken);
+      // store token same as your normal login() flow does, then:
+      router.replace("/(tabs)");
+    } catch (err: any) {
+      setError(err?.message ?? "Apple Sign-In failed.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const handleSignIn = async () => {
     // Validation
@@ -92,12 +120,20 @@ export default function SignInPage() {
         onPress={handleSignIn}
         disabled={isLoading}
       />
+      {Platform.OS === "ios" && (
+        <PrimaryButton
+          title="Continue with Apple"
+          onPress={handleAppleSignIn}
+          disabled={isLoading}
+        />
+      )}
 
       {isLoading && (
         <View style={styles.loadingContainer}>
           <LoadingSpinner size="small" />
         </View>
       )}
+
 
       <TouchableOpacity onPress={() => router.push("/signup")} disabled={isLoading}>
         <Text style={styles.link}>
