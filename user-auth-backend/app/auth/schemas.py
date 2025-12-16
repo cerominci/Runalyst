@@ -2,6 +2,14 @@ from pydantic import BaseModel, EmailStr, Field
 from datetime import datetime  # <-- Added import here to define the type
 
 
+from pydantic import BaseModel
+from typing import Optional
+
+class AppleAuthIn(BaseModel):
+    identity_token: str
+    email: Optional[str] = None
+    full_name: Optional[str] = None
+
 class SignUpIn(BaseModel):
     email: EmailStr
     password: str = Field(..., min_length=8, max_length=72)
