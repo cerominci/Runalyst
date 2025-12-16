@@ -12,6 +12,9 @@ from app.core.security import hash_password, verify_password, create_access_toke
 from app.auth.schemas import PasswordResetRequestIn, PasswordResetIn
 from app.core.security import create_password_reset_token, decode_password_reset_token
 from app.services.storage import supabase_client
+from app.auth.schemas import GoogleAuthIn
+from app.core.google_oauth import verify_google_id_token
+
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 bearer = HTTPBearer(auto_error=False)
@@ -56,24 +59,29 @@ def signup(payload: SignUpIn, db: Session = Depends(get_db)):
 
 
 @router.post("/login", response_model=TokenOut)
-def login(payload: SignUpIn, db: Session = Depends(get_db)):
+def login(payload: LoginIn, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.email == payload.email).first()
-    if not user or not verify_password(payload.password, user.hashed_password):
+
+    # If user exists but has no password (if you later allow nullable), treat as invalid
+    if not user or not user.hashed_password or not verify_password(payload.password, user.hashed_password):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid credentials"
         )
-    
+
     token = create_access_token(sub=str(user.id))
     return TokenOut(access_token=token)
+
 
 @router.get("/me", response_model=UserOut)
 def me(current_user: User = Depends(get_current_user)):
     return current_user
 
+
 @router.post("/test")
 def test_endpoint():
     return {"msg": "Test endpoint is working!"}
+
 
 @router.post("/request-password-reset")
 def request_password_reset(
@@ -182,3 +190,25 @@ def create_upload_url(current_user: User = Depends(get_current_user)):
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to create upload URL: {str(e)}"
         )
+  
+    
+@router.post("/google", response_model=TokenOut)
+def google_login(payload: GoogleAuthIn, db: Session = Depends(get_db)):
+    info = verify_google_id_token(payload.token)
+
+    email = info.get("email")
+    if not email:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Google token missing email"
+        )
+
+    user = db.query(User).filter(User.email == email).first()
+    if not user:
+        user = User(email=email, hashed_password=None)
+        db.add(user)
+        db.commit()
+        db.refresh(user)
+
+    token = create_access_token(sub=str(user.id))
+    return TokenOut(access_token=token)

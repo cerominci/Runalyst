@@ -14,6 +14,10 @@ class SignUpIn(BaseModel):
             }
         }
 
+class LoginIn(BaseModel):
+    email: EmailStr
+    password: str
+
 
 class TokenOut(BaseModel):
     access_token: str
@@ -36,3 +40,6 @@ class PasswordResetRequestIn(BaseModel):
 class PasswordResetIn(BaseModel):
     token: str
     new_password: str
+
+class GoogleAuthIn(BaseModel):
+    token: str
