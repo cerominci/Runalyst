@@ -2,6 +2,8 @@ from datetime import datetime
 from sqlalchemy import String, Boolean, Integer, DateTime, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.db.base import Base
+from sqlalchemy import Column, String
+
 
 
 class User(Base):
@@ -18,6 +20,12 @@ class User(Base):
         unique=True, 
         index=True, 
         nullable=False
+    )
+    apple_sub: Mapped[str | None] = mapped_column(
+        String(255),
+        unique=True,
+        index=True,
+        nullable=True
     )
     hashed_password: Mapped[str] = mapped_column(
         String(255), 
