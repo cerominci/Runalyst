@@ -347,7 +347,7 @@ export async function createRunRecord(video_path: string, title: string): Promis
         throw error;
     }
 }
-// utils/devAuth.ts
+
 export async function loginWithApple(identityToken: string) {
   const res = await fetch(`${API_BASE_URL}/auth/apple`, {
     method: "POST",
@@ -368,3 +368,21 @@ export async function loginWithApple(identityToken: string) {
   return { access_token: data.access_token, token_type: data.token_type || "bearer" };
 }
 
+export async function loginWithGoogle(idToken: string) {
+  const res = await fetch(`${API_BASE_URL}/auth/google`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ token: idToken }),
+  });
+
+  if (!res.ok) throw new Error(await res.text());
+
+  const data = await res.json();
+
+  if (!data.access_token) {
+    throw new Error("No access_token received from server (Google login).");
+  }
+
+  await storeToken(data.access_token); // <- same as login()
+  return { access_token: data.access_token, token_type: data.token_type || "bearer" };
+}
