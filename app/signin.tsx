@@ -123,6 +123,7 @@ export default function SignInPage() {
       {Platform.OS === "ios" && (
         <PrimaryButton
           title="Continue with Apple"
+          style={styles.appleButton}
           onPress={handleAppleSignIn}
           disabled={isLoading}
         />
@@ -174,6 +175,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#FEF2F2",
   },
   button: { marginTop: 10, paddingVertical: 16 },
+  appleButton: { marginTop: 12, paddingVertical: 16 },
   loadingContainer: {
     alignItems: "center",
     marginTop: 16,

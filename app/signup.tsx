@@ -146,6 +146,7 @@ export default function SignUpPage() {
         {Platform.OS === "ios" && (
           <PrimaryButton
             title="Continue with Apple"
+            style={styles.appleButton}
             onPress={handleAppleSignUp}
             disabled={isLoading}
           />
@@ -239,6 +240,7 @@ const styles = StyleSheet.create({
   },
   link: { color: "#3B82F6", fontWeight: "700" },
   signUpButton: { marginTop: 24 },
+  appleButton: { marginTop: 12 },
   loadingContainer: {
     alignItems: "center",
     marginTop: 16,

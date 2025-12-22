@@ -6,10 +6,15 @@ import BodyText from '@/components/atomic/Typography/BodyText';
 import Subtitle from '@/components/atomic/Typography/Subtitle';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useRouter } from 'expo-router';
-import { Image } from 'react-native';
+import { Image } from 'expo-image';
 
 import React, { useState } from 'react';
 import { LayoutAnimation, Platform, StyleSheet, TouchableOpacity, UIManager, View } from 'react-native';
+
+// Import images as constants - using relative paths for Expo Go compatibility
+const run1Image = require('../assets/images/run1.png');
+const run2Image = require('../assets/images/run2.png');
+const run3Image = require('../assets/images/run3.png');
 
 // Enable LayoutAnimation on Android
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
@@ -39,24 +44,27 @@ export default function TipsScreen() {
           <View style={styles.previewBlock}>
             <Subtitle style={styles.imageTitle}>Start from an edge</Subtitle>
             <Image
-              source={require('@/assets/images/run1.png')}
+              source={run1Image}
               style={styles.previewImage}
+              contentFit="contain"
             />
           </View>
 
           <View style={styles.previewBlock}>
             <Subtitle style={styles.imageTitle}>Keep running!</Subtitle>
             <Image
-              source={require('@/assets/images/run2.png')}
+              source={run2Image}
               style={styles.previewImage}
+              contentFit="contain"
             />
           </View>
 
           <View style={styles.previewBlock}>
             <Subtitle style={styles.imageTitle}>...and finish the scene</Subtitle>
             <Image
-              source={require('@/assets/images/run3.png')}
+              source={run3Image}
               style={styles.previewImage}
+              contentFit="contain"
             />
           </View>
 
@@ -349,7 +357,6 @@ const styles = StyleSheet.create({
     height: 220,
     borderRadius: 16,
     marginBottom: 0,
-    resizeMode: 'contain',
     backgroundColor: '#000',
   },
   

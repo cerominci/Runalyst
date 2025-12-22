@@ -222,6 +222,91 @@ docker compose restart
 docker compose exec expo npx expo start --clear
 ```
 
+### Issue: Docker I/O Error ("input/output error" during build)
+
+This error typically occurs on macOS with Docker Desktop. Try these solutions in order:
+
+**Quick Fix:**
+```bash
+# Run the automated fix script
+./scripts/fix-docker-io-error.sh
+```
+
+**Manual Steps:**
+
+1. **Restart Docker Desktop** (most common fix)
+   - Quit Docker Desktop completely (not just close window)
+   - Restart Docker Desktop
+   - Wait for it to fully start
+
+2. **Clean Docker cache:**
+```bash
+# Clean build cache
+docker builder prune -a -f
+
+# Clean all unused resources (optional)
+docker system prune -a -f
+```
+
+3. **Rebuild with no cache:**
+```bash
+docker compose down
+docker compose build --no-cache
+docker compose up -d
+```
+
+4. **Check disk space:**
+```bash
+df -h
+# Ensure you have at least 10GB free space
+```
+
+5. **If still failing, reset Docker Desktop:**
+   - Docker Desktop → Settings → Troubleshoot
+   - Click "Clean / Purge data" or "Reset to factory defaults"
+   - Restart Docker Desktop
+
+### Issue: Docker Database Corruption Error ("metadata_v2.db: input/output error")
+
+If you see this error when running `docker builder prune`:
+```
+ERROR: rpc error: code = Internal desc = write /var/lib/docker/buildkit/containerd-overlayfs/metadata_v2.db: input/output error
+```
+
+This indicates Docker Desktop's internal database is corrupted. **You must reset Docker Desktop:**
+
+**View reset instructions:**
+```bash
+./scripts/reset-docker-desktop.sh
+```
+
+**Quick Reset Steps:**
+
+1. **Quit Docker Desktop completely**
+   - Docker menu → Quit Docker Desktop (don't just close the window)
+
+2. **Reset via Docker Desktop GUI:**
+   - Open Docker Desktop
+   - Go to: **Settings → Troubleshoot**
+   - Click **"Clean / Purge data"** or **"Reset to factory defaults"**
+   - Confirm the reset
+   - Restart Docker Desktop
+
+3. **After reset, rebuild your project:**
+```bash
+docker compose build --no-cache
+docker compose up -d
+```
+
+**⚠️ Warning:** Resetting will remove all containers, images, volumes, and networks. You'll need to rebuild everything.
+
+**Alternative: Manual Reset (if GUI doesn't work):**
+```bash
+# Quit Docker Desktop first, then:
+rm -rf ~/Library/Containers/com.docker.docker/Data
+# Then restart Docker Desktop
+```
+
 ---
 
 ## 📝 Development Workflow
