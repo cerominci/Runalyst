@@ -13,106 +13,198 @@ import * as ImagePicker from "expo-image-picker";
 import { useRouter } from "expo-router";
 import { VideoView, useVideoPlayer } from "expo-video";
 import React, { useMemo, useState } from "react";
-import { Alert, Platform, StyleSheet, View } from "react-native";
+import { Modal, Platform, Pressable, StyleSheet, View } from "react-native";
 
 export default function GalleryPressScreen() {
   const router = useRouter();
+
   const [selectedVideo, setSelectedVideo] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
-  
+
+  // ✅ Cross-platform popup helper
+  type PopupTone = "info" | "success" | "error";
+
+  const [popup, setPopup] = useState<{
+    visible: boolean;
+    title: string;
+    message?: string;
+    tone: PopupTone;
+  }>({ visible: false, title: "", message: "", tone: "info" });
+
+  const showPopup = (title: string, message?: string, tone: PopupTone = "info") => {
+    setPopup({ visible: true, title, message, tone });
+  };
+
+  const hidePopup = () => setPopup((p) => ({ ...p, visible: false }));
+  function PopupModal({
+    visible,
+    title,
+    message,
+    tone,
+    onClose,
+  }: {
+    visible: boolean;
+    title: string;
+    message?: string;
+    tone: "info" | "success" | "error";
+    onClose: () => void;
+  }) {
+    return (
+      <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
+        <Pressable style={popupStyles.backdrop} onPress={onClose}>
+          <Pressable style={popupStyles.card} onPress={() => {}}>
+            <View style={[popupStyles.accent, tone === "success" ? popupStyles.success : tone === "error" ? popupStyles.error : popupStyles.info]} />
+            <View style={popupStyles.content}>
+              <Subtitle style={popupStyles.title}>{title}</Subtitle>
+              {!!message && <BodyText style={popupStyles.message}>{message}</BodyText>}
+
+              <PrimaryButton title="OK" onPress={onClose} style={popupStyles.okButton} />
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
+    );
+  }
+
+  const popupStyles = StyleSheet.create({
+    backdrop: {
+      flex: 1,
+      backgroundColor: "rgba(0,0,0,0.45)",
+      alignItems: "center",
+      justifyContent: "center",
+      padding: 16,
+    },
+    card: {
+      width: "100%",
+      maxWidth: 420,
+      borderRadius: 16,
+      overflow: "hidden",
+      backgroundColor: "#FFFFFF",
+    },
+    accent: { height: 6 },
+    info: { backgroundColor: "#3B82F6" },
+    success: { backgroundColor: "#22C55E" },
+    error: { backgroundColor: "#EF4444" },
+
+    content: { padding: 16, gap: 10 },
+    title: { fontSize: 18 },
+    message: { color: "#64748B", lineHeight: 20 },
+    okButton: { width: "100%", paddingVertical: 14, marginTop: 6 },
+  });
+
+
   const player = useVideoPlayer(selectedVideo ?? "", (p) => {
     p.loop = true;
     p.play();
   });
-  
+
   const API_BASE = "https://runalyst-backend.onrender.com";
   const GENERATE_URL_ENDPOINT = `${API_BASE}/auth/generate-upload-url`;
 
   const fetchUploadUrlAsync = async (name?: string, type?: string): Promise<string> => {
-    const TOKEN = await getToken(); //TODO: Check this
-    console.log("this is token:" + TOKEN);
+    const TOKEN = await getToken();
+
     const res = await fetch(GENERATE_URL_ENDPOINT, {
-      method: 'POST', // change to 'POST' and add body if your API expects metadata
+      method: "POST",
       headers: {
-        Accept: 'application/json',
+        Accept: "application/json",
         Authorization: "Bearer " + TOKEN,
-       },
+      },
+      // If backend expects metadata, you can add:
+      // body: JSON.stringify({ name, type }),
     });
 
     if (!res.ok) {
-      const text = await res.text().catch(() => '');
+      const text = await res.text().catch(() => "");
       throw new Error(`generate-url failed (${res.status}): ${text}`);
     }
 
     const json = await res.json().catch(() => ({}));
     const url: unknown = (json as any)?.upload_url;
-    if (typeof url !== 'string' || url.length === 0) {
+
+    if (typeof url !== "string" || url.length === 0) {
       throw new Error('Missing "upload_url" in response');
     }
+
     return url;
   };
 
   const pickVideoAsync = async () => {
+    setError(null);
+    setSuccess(null);
+
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: 'videos',
+      mediaTypes: "videos",
       allowsEditing: false,
       quality: 1,
     });
 
     if (!result.canceled) {
-      setSelectedVideo(result.assets?.[0]?.uri);
+      setSelectedVideo(result.assets?.[0]?.uri ?? null);
+      showPopup("Selected", "Video selected successfully!");
     } else {
-      Alert.alert('No video selected');
+      showPopup("No video selected");
     }
   };
 
   const fileInfo = useMemo(() => {
     if (!selectedVideo) return null;
+
     const uri = selectedVideo;
-    const name = (uri.split('/').pop() || 'video.mp4').toLowerCase();
+    const name = (uri.split("/").pop() || "video.mp4").toLowerCase();
+
     const type =
-      name.endsWith('.mov') ? 'video/quicktime' :
-      name.endsWith('.webm') ? 'video/webm' :
-      name.endsWith('.mkv') ? 'video/x-matroska' :
-      'video/mp4';
+      name.endsWith(".mov")
+        ? "video/quicktime"
+        : name.endsWith(".webm")
+        ? "video/webm"
+        : name.endsWith(".mkv")
+        ? "video/x-matroska"
+        : "video/mp4";
+
     return { uri, name, type };
   }, [selectedVideo]);
 
   const uploadVideoAsync = async () => {
     const TOKEN = await getToken();
+
     if (!fileInfo) {
-      Alert.alert("Pick a video first");
+      setError("Pick a video first");
+      showPopup("Missing video", "Pick a video first.");
       return;
     }
 
     setIsUploading(true);
+    setError(null);
+    setSuccess(null);
+
     try {
       const uploadUrl = await fetchUploadUrlAsync(fileInfo.name, fileInfo.type);
 
-      // IMPORTANT: on web, `fileInfo.uri` is typically a blob: URL.
-      // Turn it into a real Blob and upload that.
+      // ✅ Web: blob + PUT
       if (Platform.OS === "web") {
         const videoBlob = await (await fetch(fileInfo.uri)).blob();
 
         const res = await fetch(uploadUrl, {
           method: "PUT",
-          headers: {
-            // For presigned PUT URLs, Content-Type matters.
-            "Content-Type": fileInfo.type,
-            // DON'T send Authorization to a presigned storage URL.
-          },
+          headers: { "Content-Type": fileInfo.type },
           body: videoBlob,
         });
 
-        if (!res.ok) throw new Error(`Upload failed (${res.status}): ${await res.text()}`);
-        Alert.alert("Success", "Video uploaded successfully!");
+        if (!res.ok) {
+          throw new Error(`Upload failed (${res.status}): ${await res.text()}`);
+        }
+
+        setSuccess("Video uploaded successfully!");
+        showPopup("Success", "Video uploaded successfully!");
         return;
       }
 
-      // Native path (keep your existing multipart if it already works)
+      // ✅ Native: keep your current approach
       const form = new FormData();
-      // @ts-ignore React Native file shape
+      // @ts-ignore
       form.append("video", { uri: fileInfo.uri, name: fileInfo.name, type: fileInfo.type });
 
       const res = await fetch(uploadUrl, {
@@ -121,26 +213,42 @@ export default function GalleryPressScreen() {
         body: form,
       });
 
-      if (!res.ok) throw new Error(`Upload failed (${res.status}): ${await res.text()}`);
-      Alert.alert("Success", "Video uploaded successfully!");
+      if (!res.ok) {
+        throw new Error(`Upload failed (${res.status}): ${await res.text()}`);
+      }
+
+      setSuccess("Video uploaded successfully!");
+      showPopup("Success", "Video uploaded successfully!");
     } catch (e: any) {
-      Alert.alert("Upload error", e?.message ?? "Unknown error");
+      const msg = e?.message ?? "Unknown error";
+      setError(msg);
+      showPopup("Upload error", msg);
     } finally {
       setIsUploading(false);
     }
   };
 
-  const handleStartAnalysis = () => {
+  const handleStartAnalysis = async () => {
     if (!selectedVideo) {
-      Alert.alert("No Video", "Please select a video first.");
+      setError("Please select a video first.");
+      showPopup("No Video", "Please select a video first.");
       return;
     }
-    uploadVideoAsync();
+
+    await uploadVideoAsync();
     console.log("Starting analysis for:", selectedVideo);
   };
 
   return (
     <ScreenContainer>
+    <PopupModal
+      visible={popup.visible}
+      title={popup.title}
+      message={popup.message}
+      tone={popup.tone}
+      onClose={hidePopup}
+    />
+
       <ScrollScreen>
         <Column style={styles.content}>
           <Banner title="Select from Gallery" onBackPress={() => router.back()} />
@@ -149,16 +257,18 @@ export default function GalleryPressScreen() {
             Choose a video from your gallery to analyze your running form.
           </Subtitle>
 
+          {/* Inline banners still useful even if popups are blocked */}
           {error && <ErrorAlert message={error} />}
+          {success && <InfoAlert message={success} />}
 
           {isUploading ? (
             <View style={styles.centerContainer}>
               <LoadingSpinner size="large" />
-              <BodyText style={styles.loadingText}>Loading gallery...</BodyText>
+              <BodyText style={styles.loadingText}>Uploading Video...</BodyText>
             </View>
           ) : (
             <>
-              {selectedVideo ? (
+              {(!success && selectedVideo) ? (
                 <View style={styles.videoContainer}>
                   <VideoView
                     player={player}
