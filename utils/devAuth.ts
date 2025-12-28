@@ -3,11 +3,12 @@
  * Handles login, register, and token management for video upload
  */
 
+import * as FileSystem from 'expo-file-system/legacy';
 import * as SecureStore from 'expo-secure-store';
 import { Platform } from 'react-native';
 
 // TODO: Replace with your actual backend API base URL
-const API_BASE_URL = 'https://runalyst-backend.onrender.com';
+const API_BASE_URL = 'https://runalyst-backend-2xbs.onrender.com';
 
 // Token storage key
 const TOKEN_STORAGE_KEY = 'runalyst_auth_token';
@@ -313,6 +314,69 @@ export async function generateUploadUrl(): Promise<{ upload_url: string; path: s
     return data;
   } catch (error: any) {
     console.error('Generate upload URL error:', error);
+    throw error;
+  }
+}
+
+/**
+ * Upload a binary file (video) to a signed URL
+ * Handles both web (blob) and native (base64 -> Uint8Array) platforms
+ * @param fileUri - Local file URI to upload
+ * @param uploadUrl - Signed URL to upload to
+ * @param contentType - MIME type of the file (e.g., 'video/mp4')
+ * @returns Promise that resolves when upload is complete
+ */
+export async function binaryUpload(
+  fileUri: string,
+  uploadUrl: string,
+  contentType: string = 'video/mp4'
+): Promise<void> {
+  try {
+    // Web platform: use blob
+    if (Platform.OS === 'web') {
+      const videoBlob = await (await fetch(fileUri)).blob();
+      
+      const response = await fetch(uploadUrl, {
+        method: 'PUT',
+        headers: { 'Content-Type': contentType },
+        body: videoBlob,
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text().catch(() => '');
+        throw new Error(`Upload failed (${response.status}): ${errorText}`);
+      }
+
+      return;
+    }
+
+    // Native platform: read as base64 and convert to Uint8Array
+    const base64Data = await FileSystem.readAsStringAsync(fileUri, {
+      encoding: 'base64' as any,
+    });
+
+    // Convert base64 to Uint8Array for upload
+    const byteCharacters = atob(base64Data);
+    const byteNumbers = new Array(byteCharacters.length);
+    for (let i = 0; i < byteCharacters.length; i++) {
+      byteNumbers[i] = byteCharacters.charCodeAt(i);
+    }
+    const byteArray = new Uint8Array(byteNumbers);
+
+    const response = await fetch(uploadUrl, {
+      method: 'PUT',
+      body: byteArray,
+      headers: {
+        'Content-Type': contentType,
+      },
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text().catch(() => '');
+      throw new Error(`Upload failed (${response.status}): ${errorText}`);
+    }
+  } catch (error: any) {
+    console.error('Binary upload error:', error);
     throw error;
   }
 }

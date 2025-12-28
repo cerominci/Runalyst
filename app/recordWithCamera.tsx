@@ -1,7 +1,7 @@
 import PrimaryButton from "@/components/atomic/Button/PrimaryButton";
 import SecondaryButton from "@/components/atomic/Button/SecondaryButton";
 import LoadingSpinner from "@/components/atomic/Feedback/LoadingSpinner";
-import {createRunRecord, generateUploadUrl, login, register} from "@/utils/devAuth";
+import { binaryUpload, createRunRecord, generateUploadUrl } from "@/utils/devAuth";
 import { runPreflightCheck } from "@/utils/preflightCheck";
 import FontAwesome6 from "@expo/vector-icons/FontAwesome6";
 import {
@@ -9,9 +9,8 @@ import {
   CameraView,
   useCameraPermissions,
 } from "expo-camera";
-import * as FileSystem from "expo-file-system/legacy";
 import { VideoView, useVideoPlayer } from "expo-video";
-import { startTransition, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
 // TODO: Replace with your actual email and password
@@ -25,15 +24,15 @@ export default function App() {
   const [permission, requestPermission] = useCameraPermissions();
   const ref = useRef<CameraView>(null);
   const recordingPromiseRef = useRef<Promise<{ uri: string } | undefined> | null>(null);
-  const checkIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const [uri, setUri] = useState<string | null>(null);
   const [facing, setFacing] = useState<CameraType>("back");
   const [recording, setRecording] = useState(false);
   const [isVideo, setIsVideo] = useState(false);
-  const [status, setStatus] = useState<"loading" | "checking" | "ready" | "fail">("loading");
+  const [status, setStatus] = useState<"idle" | "checking" | "ready" | "fail">("idle");
   const [metrics, setMetrics] = useState<{ avgBrightness?: number; avgSharpness?: number } | null>(null);
   const [mode, setMode] = useState<"day" | "night">("day");
   const [isUploading, setIsUploading] = useState(false);
+  const [isCheckingQuality, setIsCheckingQuality] = useState(false);
   
   // Create video player for expo-video (hook must be at top level)
   const player = useVideoPlayer(uri || '', (player) => {
@@ -53,99 +52,58 @@ export default function App() {
     }
   }, [uri, player]);
 
-  // Start preflight checks when camera is ready
-  // Must be called before any conditional returns (Rules of Hooks)
-  useEffect(() => {
-    // Only run if permission is granted
-    if (!permission?.granted || !ref.current || recording) return;
+  // Manual quality check function
+  const checkQuality = async () => {
+    if (!ref.current || recording || isCheckingQuality) return;
 
-    const startQualityChecks = () => {
-      const runCheck = async () => {
-        // Don't check if camera is not available or recording
-        if (!ref.current || recording) return;
-        
-        // Store ref in a local variable to ensure it doesn't change during async operation
-        const cameraRef = ref.current;
-        if (!cameraRef) return;
+    setIsCheckingQuality(true);
+    setStatus("checking");
+    setMetrics(null);
 
-        try {
-          // Use startTransition to mark status update as non-urgent
-          // This prevents blocking the photo capture process
-          startTransition(() => {
-            setStatus((currentStatus) => {
-              return currentStatus === "loading" ? "checking" : currentStatus;
-            });
-          });
-
-          const thresholds =
-            mode === "day"
-              ? { minBrightness: 60, maxBrightness: 220, minSharpness: 0.035 }
-              : { minBrightness: 25, maxBrightness: 200, minSharpness: 0.02 };
-
-          // Run preflight check - state updates are deferred via startTransition
-          const result = await runPreflightCheck(cameraRef, thresholds);
-          console.log("Preflight results:", result);
-          
-          // Check if camera is still mounted before updating state (prevents updates if unmounted)
-          if (!ref.current) {
-            console.warn("Camera unmounted after preflight check, skipping state update");
-            return;
-          }
-          
-          // Use startTransition for all state updates to prevent blocking/unmounting
-          startTransition(() => {
-            setMetrics(result.metrics);
-            
-            if (result.pass) {
-              setStatus((currentStatus) => {
-                return currentStatus === "ready" ? currentStatus : "ready";
-              });
-            } else {
-              setStatus("fail");
-            }
-          });
-        } catch (err: any) {
-          // If camera unmounted, don't treat it as a failure - just stop checking
-          if (err?.message?.includes("unmounted") || err?.message?.includes("Camera unmounted")) {
-            console.warn("Camera unmounted during preflight, will retry on next check");
-            return; // Don't set status to fail, just return
-          }
-          console.error("Error during preflight:", err);
-          
-          // Only update state if camera is still mounted, and use startTransition
-          if (ref.current) {
-            startTransition(() => {
-              setStatus("fail");
-            });
-          }
-        }
-      };
-
-      // Initial check after delay
-      setTimeout(runCheck, 1000);
-
-      // Poll every 2s continuously (even after ready)
-      if (!checkIntervalRef.current) {
-        checkIntervalRef.current = setInterval(() => {
-          // Continue checking as long as not recording and camera is available
-          if (!recording && ref.current) {
-            runCheck();
-          }
-        }, 2000);
+    try {
+      const cameraRef = ref.current;
+      if (!cameraRef) {
+        setStatus("idle");
+        setIsCheckingQuality(false);
+        return;
       }
-    };
 
-    // Start checks after a delay to ensure camera is ready
-    const timeoutId = setTimeout(startQualityChecks, 1500);
+      const thresholds =
+        mode === "day"
+          ? { minBrightness: 60, maxBrightness: 220, minSharpness: 0.035 }
+          : { minBrightness: 25, maxBrightness: 200, minSharpness: 0.02 };
 
-    return () => {
-      clearTimeout(timeoutId);
-      if (checkIntervalRef.current) {
-        clearInterval(checkIntervalRef.current);
-        checkIntervalRef.current = null;
+      // Run preflight check - only take one screenshot
+      const result = await runPreflightCheck(cameraRef, {
+        ...thresholds,
+        framesToSample: 1, // Only take one screenshot instead of multiple
+        sampleIntervalMs: 0, // No delay needed for single frame
+      });
+      console.log("Preflight results:", result);
+
+      // Check if camera is still mounted before updating state
+      if (!ref.current) {
+        console.warn("Camera unmounted after preflight check, skipping state update");
+        setIsCheckingQuality(false);
+        return;
       }
-    };
-  }, [mode, recording, permission?.granted]);
+
+      setMetrics(result.metrics);
+
+      if (result.pass) {
+        setStatus("ready");
+      } else {
+        setStatus("fail");
+      }
+    } catch (err: any) {
+      console.error("Error during preflight:", err);
+      if (ref.current) {
+        setStatus("fail");
+      }
+    } finally {
+      setIsCheckingQuality(false);
+    }
+  };
 
   if (!permission) {
     return null;
@@ -166,10 +124,6 @@ export default function App() {
     if (recording) {
       // Stop recording
       setRecording(false);
-      if (checkIntervalRef.current) {
-        clearInterval(checkIntervalRef.current);
-        checkIntervalRef.current = null;
-      }
       ref.current?.stopRecording();
       // Wait for the promise to resolve
       if (recordingPromiseRef.current) {
@@ -192,12 +146,6 @@ export default function App() {
     // Start recording
     if (!ref.current) return;
     
-    // Stop quality checks while recording
-    if (checkIntervalRef.current) {
-      clearInterval(checkIntervalRef.current);
-      checkIntervalRef.current = null;
-    }
-    
     setRecording(true);
     const promise = ref.current.recordAsync();
     recordingPromiseRef.current = promise;
@@ -212,14 +160,14 @@ export default function App() {
   const toggleFacing = () => {
     if (recording) return;
     setFacing((prev) => (prev === "back" ? "front" : "back"));
-    setStatus("loading");
+    setStatus("idle");
     setMetrics(null);
   };
 
   const toggleMode = () => {
     if (recording) return;
     setMode((prev) => (prev === "day" ? "night" : "day"));
-    setStatus("loading");
+    setStatus("idle");
     setMetrics(null);
   };
 
@@ -262,49 +210,26 @@ export default function App() {
       console.log('Getting upload URL...');
       const { upload_url, path } = await generateUploadUrl();
       console.log('Upload URL received:', { path });
+      console.log('Upload URL:', upload_url);
       
-      // Step 4: Upload video file to signed URL
-      console.log('Reading video file...');
-      // Read file as base64 using expo-file-system legacy API (React Native compatible)
-      const base64Data = await FileSystem.readAsStringAsync(uri, {
-        encoding: 'base64' as any,
-      });
-      
-      // Convert base64 to Uint8Array for upload
-      const byteCharacters = atob(base64Data);
-      const byteNumbers = new Array(byteCharacters.length);
-      for (let i = 0; i < byteCharacters.length; i++) {
-        byteNumbers[i] = byteCharacters.charCodeAt(i);
-      }
-      const byteArray = new Uint8Array(byteNumbers);
-      
+      // Step 4: Upload video file to signed URL using centralized binary upload function
       console.log('Uploading video to signed URL...');
-      // Upload to Supabase signed URL using PUT method
-      const uploadResponse = await fetch(upload_url, {
-        method: 'PUT',
-        body: byteArray,
-        headers: {
-          'Content-Type': 'video/mp4',
-        },
-      });
-      
-      if (!uploadResponse.ok) {
-        throw new Error(`Video upload failed: ${uploadResponse.statusText}`);
-      }else{
-          try{
-              const response = await createRunRecord(upload_url, "run");
-              if(response != null) {
-                  console.log(response);
-              }
-              else {
-                  throw new Error("Create run response is null");
-              }
-          }catch(e){
-              console.error("Create run record failed" +  e);
-          }
-      }
+      await binaryUpload(uri, upload_url, 'video/mp4');
       
       console.log('Video uploaded successfully to:', path);
+      
+      // Step 5: Create run record
+      try {
+        const response = await createRunRecord(path, "run");
+        if (response != null) {
+          console.log('Run record created:', response);
+        } else {
+          throw new Error("Create run response is null");
+        }
+      } catch (e) {
+        console.error("Create run record failed:", e);
+        // Don't throw - upload was successful, just the record creation failed
+      }
       
       /*
       // Step 5: Create run record
@@ -350,7 +275,8 @@ export default function App() {
   const handleRetake = () => {
     setUri(null);
     setIsVideo(false);
-    setStatus("loading");
+    setStatus("idle");
+    setMetrics(null);
   };
 
   const renderVideo = (uri: string) => {
@@ -428,23 +354,53 @@ export default function App() {
           </View>
         )}
 
-        {/* Status indicator */}
+        {/* Status indicator and Check Quality button */}
         {!recording && (
           <View style={styles.statusContainer}>
-            {status === "loading" && (
-              <Text style={styles.statusText}>Loading camera...</Text>
+            {status === "idle" && (
+              <>
+                <Text style={styles.statusText}>Press "Check Quality" to analyze</Text>
+                <PrimaryButton
+                  title="Check Quality"
+                  onPress={checkQuality}
+                  disabled={isCheckingQuality}
+                  style={styles.checkQualityButton}
+                />
+              </>
             )}
             {status === "checking" && (
-              <Text style={styles.statusText}>Analyzing quality...</Text>
+              <>
+                <LoadingSpinner size="small" />
+                <Text style={styles.statusText}>Analyzing quality...</Text>
+              </>
             )}
             {status === "ready" && (
-              <Text style={[styles.statusText, styles.readyText]}>✅ Ready to record</Text>
+              <>
+                <Text style={[styles.statusText, styles.readyText]}>✅ Ready to record</Text>
+                {metrics && (
+                  <Text style={styles.adviceText}>{getAdvice()}</Text>
+                )}
+                <PrimaryButton
+                  title="Check Quality Again"
+                  onPress={checkQuality}
+                  disabled={isCheckingQuality}
+                  style={styles.checkQualityButton}
+                />
+              </>
             )}
             {status === "fail" && (
-              <Text style={[styles.statusText, styles.failText]}>❌ Quality too low</Text>
-            )}
-            {metrics && (
-              <Text style={styles.adviceText}>{getAdvice()}</Text>
+              <>
+                <Text style={[styles.statusText, styles.failText]}>❌ Quality too low</Text>
+                {metrics && (
+                  <Text style={styles.adviceText}>{getAdvice()}</Text>
+                )}
+                <PrimaryButton
+                  title="Check Quality Again"
+                  onPress={checkQuality}
+                  disabled={isCheckingQuality}
+                  style={styles.checkQualityButton}
+                />
+              </>
             )}
           </View>
         )}
@@ -453,13 +409,13 @@ export default function App() {
           <Pressable onPress={toggleFacing} disabled={recording}>
             <FontAwesome6 name="rotate-left" size={32} color={recording ? "#666" : "white"} />
           </Pressable>
-          <Pressable onPress={recordVideo} disabled={status !== "ready" && !recording}>
+          <Pressable onPress={recordVideo} disabled={(status !== "ready" && !recording) || isCheckingQuality}>
             {({ pressed }) => (
               <View
                 style={[
                   styles.shutterBtn,
                   {
-                    opacity: pressed ? 0.5 : (status === "ready" || recording) ? 1 : 0.5,
+                    opacity: pressed ? 0.5 : (status === "ready" || recording) ? 1 : 0.3,
                   },
                 ]}
               >
@@ -527,9 +483,10 @@ const styles = StyleSheet.create({
     alignSelf: "center",
     alignItems: "center",
     backgroundColor: "rgba(0,0,0,0.6)",
-    padding: 12,
+    padding: 16,
     borderRadius: 12,
     maxWidth: "80%",
+    minWidth: 200,
   },
   statusText: {
     color: "white",
@@ -639,5 +596,11 @@ const styles = StyleSheet.create({
     color: "white",
     fontSize: 14,
     fontWeight: "600",
+  },
+  checkQualityButton: {
+    marginTop: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    minWidth: 150,
   },
 });
