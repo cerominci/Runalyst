@@ -30,7 +30,7 @@ export default function SignUpPage() {
 
       await loginWithApple(credential.identityToken);
 
-      router.replace("/(tabs)");
+      router.replace("/profile");
     } catch (err: any) {
       setError(err?.message ?? "Apple Sign-Up failed.");
     } finally {
@@ -73,8 +73,8 @@ export default function SignUpPage() {
       const loginResult = await login(email.trim(), password);
       console.log("Auto-login successful:", loginResult);
       
-      // Navigate to main app on success
-      router.replace("/(tabs)");
+      // Navigate to profile page to complete profile
+      router.replace("/profile");
     } catch (err: any) {
       console.error("Signup error:", err);
       setError(err.message || "Failed to create account. Please try again.");
