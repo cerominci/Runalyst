@@ -10,8 +10,15 @@ import HeightInput from "@/components/composite/Profile/HeightInput";
 import InjurySelector from "@/components/composite/Profile/InjurySelector";
 import RunningGoalSelector from "@/components/composite/Profile/RunningGoalSelector";
 import WeightInput from "@/components/composite/Profile/WeightInput";
+import {
+  ExperienceLevel,
+  Gender,
+  ProfileUpdateIn,
+  RunningGoal,
+} from "@/constants/types";
+import { getCurrentUser, updateProfile } from "@/utils/devAuth";
 import { useRouter } from "expo-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
 
 export default function ProfilePage() {
@@ -27,6 +34,30 @@ export default function ProfilePage() {
   const [experienceLevel, setExperienceLevel] = useState<string | null>(null);
   const [runningGoal, setRunningGoal] = useState<string | null>(null);
   const [hasInjuries, setHasInjuries] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    loadProfile();
+  }, []);
+
+  const loadProfile = async () => {
+    setIsLoading(true);
+    try {
+      const user = await getCurrentUser();
+      if (user.profile) {
+        setAge(user.profile.age?.toString() || "");
+        setWeight(user.profile.weight?.toString() || "");
+        setHeight(user.profile.height?.toString() || "");
+        setGender(user.profile.gender || null);
+        setExperienceLevel(user.profile.experience_level || null);
+        setRunningGoal(user.profile.running_goal || null);
+        setHasInjuries(user.profile.has_injuries ?? null);
+      }
+    } catch (err) {
+      console.error("Failed to load profile:", err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const validateForm = (): boolean => {
     if (!age.trim() || parseInt(age) < 1 || parseInt(age) > 120) {
@@ -70,21 +101,20 @@ export default function ProfilePage() {
     setIsLoading(true);
 
     try {
-      // TODO: Save profile data to backend
-      const profileData = {
+      const profileData: ProfileUpdateIn = {
         age: parseInt(age),
         weight: parseFloat(weight),
         height: parseInt(height),
-        gender,
-        experienceLevel,
-        runningGoal,
-        hasInjuries,
+        gender: gender as Gender,
+        experience_level: experienceLevel as ExperienceLevel,
+        running_goal: runningGoal as RunningGoal,
+        has_injuries: hasInjuries,
       };
 
       console.log("Profile data:", profileData);
 
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 1000));
+      await updateProfile(profileData);
+
 
       // Navigate to main app
       router.replace("/(tabs)");

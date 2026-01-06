@@ -3,6 +3,7 @@
  * Handles login, register, and token management for video upload
  */
 
+import { Profile, ProfileUpdateIn, User } from '@/constants/types';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as SecureStore from 'expo-secure-store';
 import { Platform } from 'react-native';
@@ -14,12 +15,12 @@ const API_BASE_URL = 'https://runalyst-backend-2xbs.onrender.com';
 const TOKEN_STORAGE_KEY = 'runalyst_auth_token';
 
 export type Run = {
-    id: number;
-    title: string | null;
-    video_path: string;
-    analysis_results: Record<string, any> | null;
-    created_at: string; // ISO datetime string
-    user_id: number;
+  id: number;
+  title: string | null;
+  video_path: string;
+  analysis_results: Record<string, any> | null;
+  created_at: string; // ISO datetime string
+  user_id: number;
 };
 
 /**
@@ -136,7 +137,7 @@ export async function register(
     }
 
     const data = await response.json();
-    
+
     // Signup response: { id, email, is_active, created_at }
     // Note: No token in signup response - user must login after signup
     return data;
@@ -197,7 +198,7 @@ export async function login(
     }
 
     const data = await response.json();
-    
+
     // Login response: { access_token, token_type: "bearer" }
     if (!data.access_token) {
       throw new Error('No access_token received from server');
@@ -205,7 +206,7 @@ export async function login(
 
     // Store token
     await storeToken(data.access_token);
-    
+
     return { access_token: data.access_token, token_type: data.token_type || 'bearer' };
   } catch (error: any) {
     console.error('Login error:', error);
@@ -249,7 +250,7 @@ export async function isAuthenticated(): Promise<boolean> {
  * Get current user information
  * @returns Promise with user data
  */
-export async function getCurrentUser(): Promise<{ id: number; email: string; is_active: boolean; created_at: string }> {
+export async function getCurrentUser(): Promise<User> {
   try {
     const token = await getToken();
     if (!token) {
@@ -335,7 +336,7 @@ export async function binaryUpload(
     // Web platform: use blob
     if (Platform.OS === 'web') {
       const videoBlob = await (await fetch(fileUri)).blob();
-      
+
       const response = await fetch(uploadUrl, {
         method: 'PUT',
         headers: { 'Content-Type': contentType },
@@ -382,34 +383,34 @@ export async function binaryUpload(
 }
 
 export async function createRunRecord(video_path: string, title: string): Promise<Run | void> {
-    try {
-        const token = await getToken();
-        if (!token) {
-            throw new Error('No authentication token found');
-        }
-        const response = await fetch(`${API_BASE_URL}/runs`, {
-            method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${token}`,
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                video_path,
-                title,
-            })
-        })
-        if (!response.ok) {
-            if (response.status === 401) {
-                await logout();
-                throw new Error('Authentication token is invalid');
-            }
-            const error = await response.json().catch(() => ({message: 'Failed to create run record' }));
-            throw new Error(error.message || `Failed to create run record: ${response.statusText}`);
-        }
-    } catch (error: any){
-        console.error('Create run record failed:', error);
-        throw error;
+  try {
+    const token = await getToken();
+    if (!token) {
+      throw new Error('No authentication token found');
     }
+    const response = await fetch(`${API_BASE_URL}/runs`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        video_path,
+        title,
+      })
+    })
+    if (!response.ok) {
+      if (response.status === 401) {
+        await logout();
+        throw new Error('Authentication token is invalid');
+      }
+      const error = await response.json().catch(() => ({ message: 'Failed to create run record' }));
+      throw new Error(error.message || `Failed to create run record: ${response.statusText}`);
+    }
+  } catch (error: any) {
+    console.error('Create run record failed:', error);
+    throw error;
+  }
 }
 // utils/devAuth.ts
 export async function loginWithApple(identityToken: string) {
@@ -430,5 +431,43 @@ export async function loginWithApple(identityToken: string) {
 
   await storeToken(data.access_token); // <- same as login()
   return { access_token: data.access_token, token_type: data.token_type || "bearer" };
+}
+
+/**
+ * Update user profile
+ * @param profileData - Profile data to update
+ * @returns Promise with updated profile
+ */
+export async function updateProfile(profileData: ProfileUpdateIn): Promise<Profile> {
+  try {
+    const token = await getToken();
+    if (!token) {
+      throw new Error('No authentication token found');
+    }
+
+    const response = await fetch(`${API_BASE_URL}/auth/update-profile`, {
+      method: 'PATCH',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(profileData),
+    });
+
+    if (!response.ok) {
+      if (response.status === 401) {
+        await logout();
+        throw new Error('Authentication token is invalid');
+      }
+      const error = await response.json().catch(() => ({ message: 'Failed to update profile' }));
+      throw new Error(error.message || `Failed to update profile: ${response.statusText}`);
+    }
+
+    const data = await response.json();
+    return data;
+  } catch (error: any) {
+    console.error('Update profile error:', error);
+    throw error;
+  }
 }
 
