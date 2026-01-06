@@ -1,5 +1,3 @@
-import uuid
-
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.orm import Session
@@ -195,8 +193,8 @@ def update_profile(
     profile = db.query(ProfileInfo).filter(ProfileInfo.user_id == current_user.id).first()
 
     # 2. Extract the data sent in the request
-    # mode='json' ensures Enums are converted to their values
-    update_data = payload.model_dump(exclude_unset=True, mode='json')
+    # We want Enum objects, not strings, for SQLAlchemy Enum columns
+    update_data = payload.model_dump(exclude_unset=True)
 
     try:
         if not profile:

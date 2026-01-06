@@ -1,4 +1,5 @@
-from app.auth.schemas import ProfileUpdateIn, Gender, ExperienceLevel, RunningGoal
+from app.auth.schemas import ProfileUpdateIn
+from app.core.enums import Gender, ExperienceLevel, RunningGoal
 from pydantic import ValidationError
 import sys
 

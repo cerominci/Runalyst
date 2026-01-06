@@ -1,7 +1,8 @@
-from sqlalchemy import String, Integer, Float, ForeignKey
+from sqlalchemy import String, Integer, Float, ForeignKey, Boolean, Enum as SQLAlchemyEnum
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.db.base import Base
 from app.models.user import User
+from app.core.enums import Gender, ExperienceLevel, RunningGoal
 
 
 class ProfileInfo(Base):
@@ -18,10 +19,10 @@ class ProfileInfo(Base):
     weight: Mapped[float | None] = mapped_column(Float, nullable=True)
     height: Mapped[float | None] = mapped_column(Float, nullable=True)
     bio: Mapped[str | None] = mapped_column(String(500), nullable=True)
-    gender: Mapped[str | None] = mapped_column(String(50), nullable=True)
-    experience_level: Mapped[str | None] = mapped_column(String(100), nullable=True)
-    running_goal: Mapped[str | None] = mapped_column(String(255), nullable=True)
-    has_injuries: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    gender: Mapped[Gender | None] = mapped_column(SQLAlchemyEnum(Gender), nullable=True)
+    experience_level: Mapped[ExperienceLevel | None] = mapped_column(SQLAlchemyEnum(ExperienceLevel), nullable=True)
+    running_goal: Mapped[RunningGoal | None] = mapped_column(SQLAlchemyEnum(RunningGoal), nullable=True)
+    has_injuries: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
 
     # Relationship back to the User
     user: Mapped["User"] = relationship("User", back_populates="profile")
