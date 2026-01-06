@@ -1,8 +1,7 @@
 from typing import Optional
-
 from pydantic import BaseModel, EmailStr, Field
 from datetime import datetime
-
+from enum import Enum
 
 class SignUpIn(BaseModel):
     email: EmailStr
@@ -39,15 +38,35 @@ class PasswordResetIn(BaseModel):
     token: str
     new_password: str
 
+class Gender(str, Enum):
+    MALE = "male"
+    FEMALE = "female"
+    OTHER = "other"
+    PREFER_NOT_TO_SAY = "prefer_not_to_say"
+
+class ExperienceLevel(str, Enum):
+    BEGINNER = "beginner"
+    INTERMEDIATE = "intermediate"
+    ADVANCED = "advanced"
+    ELITE = "elite"
+
+class RunningGoal(str, Enum):
+    WEIGHT_LOSS = "weight_loss"
+    IMPROVE_FITNESS = "improve_fitness"
+    MARATHON_TRAINING = "marathon_training"
+    SPEED_IMPROVEMENT = "speed_improvement"
+    STRESS_RELIEF = "stress_relief"
+    SOCIAL_RUNNING = "social_running"
+
 class ProfileUpdateIn(BaseModel):
     age: Optional[int] = None
     weight: Optional[float] = None
     height: Optional[float] = None
     bio: Optional[str] = None
-    gender: Optional[str] = None
-    experience_level: Optional[str] = None
-    running_goal: Optional[str] = None
-    has_injuries: Optional[str] = None
+    gender: Optional[Gender] = None
+    experience_level: Optional[ExperienceLevel] = None
+    running_goal: Optional[RunningGoal] = None
+    has_injuries: Optional[bool] = None
 
 
 class ProfileOut(ProfileUpdateIn):

@@ -195,7 +195,8 @@ def update_profile(
     profile = db.query(ProfileInfo).filter(ProfileInfo.user_id == current_user.id).first()
 
     # 2. Extract the data sent in the request
-    update_data = payload.model_dump(exclude_unset=True)
+    # mode='json' ensures Enums are converted to their values
+    update_data = payload.model_dump(exclude_unset=True, mode='json')
 
     try:
         if not profile:
