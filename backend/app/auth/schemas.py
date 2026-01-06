@@ -1,5 +1,7 @@
+from typing import Optional
+
 from pydantic import BaseModel, EmailStr, Field
-from datetime import datetime  # <-- Added import here to define the type
+from datetime import datetime
 
 
 class SignUpIn(BaseModel):
@@ -36,3 +38,18 @@ class PasswordResetRequestIn(BaseModel):
 class PasswordResetIn(BaseModel):
     token: str
     new_password: str
+
+class ProfileUpdateIn(BaseModel):
+    age: Optional[int] = None
+    weight: Optional[float] = None
+    height: Optional[float] = None
+    bio: Optional[str] = None
+    gender: Optional[str] = None
+    experience_level: Optional[str] = None
+    running_goal: Optional[str] = None
+    has_injuries: Optional[str] = None
+
+
+class ProfileOut(ProfileUpdateIn):
+    class Config:
+        from_attributes = True

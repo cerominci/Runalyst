@@ -7,7 +7,8 @@ from sqlalchemy.orm import Session
 from app.deps.auth import get_current_user
 from app.deps.db import get_db
 from app.models.user import User
-from app.auth.schemas import SignUpIn, TokenOut, UserOut
+from app.models.profile_info import ProfileInfo
+from app.auth.schemas import SignUpIn, TokenOut, UserOut, ProfileUpdateIn, ProfileOut
 from app.core.security import hash_password, verify_password, create_access_token, decode_access_token
 from app.auth.schemas import PasswordResetRequestIn, PasswordResetIn
 from app.core.security import create_password_reset_token, decode_password_reset_token
@@ -181,4 +182,39 @@ def create_upload_url(current_user: User = Depends(get_current_user)):
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to create upload URL: {str(e)}"
+        )
+
+
+@router.patch("/update-profile", response_model=ProfileOut)
+def update_profile(
+        payload: ProfileUpdateIn,
+        current_user: User = Depends(get_current_user),
+        db: Session = Depends(get_db)
+):
+    # 1. Try to find existing profile for this user
+    profile = db.query(ProfileInfo).filter(ProfileInfo.user_id == current_user.id).first()
+
+    # 2. Extract the data sent in the request
+    update_data = payload.model_dump(exclude_unset=True)
+
+    try:
+        if not profile:
+            # Create new profile if it doesn't exist
+            profile = ProfileInfo(user_id=current_user.id, **update_data)
+            db.add(profile)
+        else:
+            # Update only the fields provided in the payload
+            for key, value in update_data.items():
+                setattr(profile, key, value)
+
+        db.commit()
+        db.refresh(profile)
+        return profile
+
+    except Exception as e:
+        db.rollback()
+        print(f"Error updating profile: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to update profile information"
         )

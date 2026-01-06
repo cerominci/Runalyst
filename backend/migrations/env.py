@@ -7,15 +7,18 @@ from logging.config import fileConfig
 from alembic import context
 from sqlalchemy import create_engine, pool
 
-from app.db.base import Base
-from app.models.user import User
-from app.models.run import Run
+
 
 # --- Make project root importable ---
 CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))   # …/migrations
 PROJECT_ROOT = os.path.dirname(CURRENT_DIR)                 # …/user-auth-backend
 if PROJECT_ROOT not in sys.path:
     sys.path.insert(0, PROJECT_ROOT)
+
+from app.db.base import Base
+from app.models.user import User
+from app.models.run import Run
+from app.models.profile_info import ProfileInfo
 
 # Load app settings (reads .env)
 try:

@@ -35,6 +35,8 @@ class User(Base):
     )
 
     runs = relationship("Run", back_populates="owner", cascade="all, delete-orphan")
+    # Add this alongside your 'runs' relationship
+    profile = relationship("ProfileInfo", back_populates="user", uselist=False, cascade="all, delete-orphan")
     
     def __repr__(self) -> str:
         return f"<User(id={self.id}, email='{self.email}')>"
