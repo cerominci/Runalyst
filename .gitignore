@@ -3,4 +3,8 @@
 **/.DS_Store
 # Logs
 *.log
+__pycache__
+.expo
+.idea
 
+node_modules
