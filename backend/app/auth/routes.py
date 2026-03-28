@@ -1,3 +1,6 @@
+import logging
+import uuid
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.orm import Session
@@ -72,6 +75,7 @@ def me(current_user: User = Depends(get_current_user)):
 
 @router.post("/test")
 def test_endpoint():
+    logging.info("Test endpoint is working!")
     return {"msg": "Test endpoint is working!"}
 
 @router.post("/request-password-reset")
