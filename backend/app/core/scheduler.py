@@ -43,7 +43,8 @@ def process_jobs_from_sqs():
 
     messages = response.get("Messages", [])
     if not messages:
-        logging.info("Scheduler: No new messages in SQS queue.")
+        #Comment out for easier development
+        #logging.info("Scheduler: No new messages in SQS queue.")
         return
 
     for message in messages:
