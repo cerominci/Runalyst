@@ -8,7 +8,7 @@ class AnalysisResult(Base):
     __tablename__ = "analysis_results"
 
     id = Column(Integer, primary_key=True, index=True)
-    run_id = Column(Integer, ForeignKey('run.id', ondelete='CASCADE'), unique=True)
+    run_id = Column(Integer, ForeignKey('runs.id', ondelete='CASCADE'), unique=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     avg_stride_length = Column(Float)
