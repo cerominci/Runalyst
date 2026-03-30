@@ -25,3 +25,5 @@ class Run(Base):
     status = Column(String, default="pending", nullable=False)
     # Establish the relationship to the User model
     owner = relationship("User", back_populates="runs")
+
+    analysis_result = relationship("AnalysisResult", back_populates="owner", uselist=False)
