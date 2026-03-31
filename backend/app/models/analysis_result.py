@@ -18,4 +18,4 @@ class AnalysisResult(Base):
 
     details = Column(JSON)
 
-    owner = relationship("Run", back_populates="analysis")
+    owner = relationship("Run", back_populates="analysis_result")
