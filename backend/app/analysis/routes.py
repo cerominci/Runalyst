@@ -1,14 +1,16 @@
-from fastapi import Depends, status, APIRouter
+from fastapi import Depends, status, APIRouter, HTTPException
 from sqlalchemy.orm import Session
 
-from app.analysis.schemas import AnalysisCreateIn
+from app.analysis.schemas import AnalysisCreateIn, AnalysisOut
+from app.deps.auth import get_current_user
 from app.deps.db import get_db
 from app.models.analysis_result import AnalysisResult
 from app.models.run import Run
+from app.models.user import User
 
 router = APIRouter(prefix="/analysis", tags=["analyses"])
 
-@router.post("/analysis", status_code=status.HTTP_201_CREATED)
+@router.post("/save",status_code=status.HTTP_201_CREATED)
 
 def save_analysis_results(
         payload: AnalysisCreateIn,
@@ -33,3 +35,27 @@ def save_analysis_results(
 
     db.commit()
     return {"message": "Analysis saved successfully"}
+
+@router.post("/get", response_model=AnalysisOut, status_code=status.HTTP_200_OK)
+def get_analysis(
+        run_id: int,
+        db: Session = Depends(get_db),
+        current_user: User = Depends(get_current_user)
+):
+    analysis = db.query(AnalysisResult).filter(AnalysisResult.run_id == run_id).first()
+
+    if not analysis:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Analysis results not found for this run."
+        )
+
+    run = db.query(Run).filter(Run.id == run_id, Run.user_id == current_user.id).first()
+
+    if not run:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You do not have permission to access this analysis."
+        )
+
+    return analysis
