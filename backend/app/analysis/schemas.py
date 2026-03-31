@@ -16,6 +16,8 @@ class AnalysisBase(BaseModel):
 class AnalysisCreateIn(AnalysisBase):
     run_id: int
 
+class AnalysisGetIn(BaseModel):
+    run_id: int
 
 class AnalysisOut(AnalysisBase):
     id: int
