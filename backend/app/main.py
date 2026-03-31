@@ -6,6 +6,7 @@ from app.db.session import db_ping
 from app.auth import routes as auth_router
 from app.runs import routes as runs_router
 from app.model_results import routes as model_results_router
+from app.analysis import routes as analysis_router
 from app.core.scheduler import run_dispatcher_periodically
 
 @asynccontextmanager
@@ -64,6 +65,8 @@ app.include_router(auth_router.router)
 
 app.include_router(runs_router.router)
 app.include_router(model_results_router.router)
+
+app.include_router(analysis_router.router)
 
 @app.get("/")
 def read_root():
