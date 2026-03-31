@@ -51,3 +51,11 @@ class PasswordResetRequestIn(BaseModel):
 class PasswordResetIn(BaseModel):
     token: str
     new_password: str
+
+class GoogleAuthIn(BaseModel):
+    token: str
+
+class AppleAuthIn(BaseModel):
+    identity_token: str
+    email: Optional[str] = None
+    full_name: Optional[str] = None

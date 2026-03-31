@@ -1,19 +1,65 @@
 import logging
+import os
+import time
 import uuid
 
+import requests
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from jose import jwt
 from sqlalchemy.orm import Session
 
 from app.deps.auth import get_current_user
 from app.deps.db import get_db
 from app.models.user import User
 from app.models.profile_info import ProfileInfo
-from app.auth.schemas import SignUpIn, TokenOut, UserOut, ProfileUpdateIn, ProfileOut
+from app.auth.schemas import SignUpIn, TokenOut, UserOut, ProfileUpdateIn, ProfileOut, GoogleAuthIn, AppleAuthIn
 from app.core.security import hash_password, verify_password, create_access_token, decode_access_token
 from app.auth.schemas import PasswordResetRequestIn, PasswordResetIn
 from app.core.security import create_password_reset_token, decode_password_reset_token
+from app.core.google_oauth import verify_google_id_token
 from app.services.storage import supabase_client
+
+APPLE_JWKS_URL = "https://appleid.apple.com/auth/keys"
+APPLE_ISSUER = "https://appleid.apple.com"
+_JWKS_CACHE = None
+_JWKS_CACHE_TS = 0
+_JWKS_TTL_SECONDS = 60 * 60
+
+
+def _get_apple_jwks():
+    global _JWKS_CACHE, _JWKS_CACHE_TS
+    now = time.time()
+    if _JWKS_CACHE and (now - _JWKS_CACHE_TS) < _JWKS_TTL_SECONDS:
+        return _JWKS_CACHE
+    resp = requests.get(APPLE_JWKS_URL, timeout=10)
+    resp.raise_for_status()
+    _JWKS_CACHE = resp.json()
+    _JWKS_CACHE_TS = now
+    return _JWKS_CACHE
+
+
+def _verify_apple_identity_token(identity_token: str, audience: str) -> dict:
+    jwks = _get_apple_jwks()
+    headers = jwt.get_unverified_header(identity_token)
+    kid = headers.get("kid")
+    alg = headers.get("alg")
+    if not kid or not alg:
+        raise ValueError("Invalid Apple token header (missing kid/alg).")
+    key = next((k for k in jwks.get("keys", []) if k.get("kid") == kid), None)
+    if not key:
+        raise ValueError("Apple public key not found (kid mismatch).")
+    claims = jwt.decode(
+        identity_token,
+        key,
+        algorithms=[alg],
+        audience=audience,
+        issuer=APPLE_ISSUER,
+        options={"verify_aud": True, "verify_iss": True, "verify_exp": True},
+    )
+    if "sub" not in claims:
+        raise ValueError("Apple token missing 'sub' claim.")
+    return claims
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 bearer = HTTPBearer(auto_error=False)
@@ -60,7 +106,7 @@ def signup(payload: SignUpIn, db: Session = Depends(get_db)):
 @router.post("/login", response_model=TokenOut)
 def login(payload: SignUpIn, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.email == payload.email).first()
-    if not user or not verify_password(payload.password, user.hashed_password):
+    if not user or not user.hashed_password or not verify_password(payload.password, user.hashed_password):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid credentials"
@@ -221,3 +267,84 @@ def update_profile(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to update profile information"
         )
+
+
+@router.post("/google", response_model=TokenOut)
+def google_login(payload: GoogleAuthIn, db: Session = Depends(get_db)):
+    info = verify_google_id_token(payload.token)
+
+    email = info.get("email")
+    if not email:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Google token missing email"
+        )
+
+    user = db.query(User).filter(User.email == email).first()
+    if not user:
+        google_sub = info.get("sub")
+        user = User(email=email, hashed_password=None, auth_provider="google", google_sub=google_sub)
+        db.add(user)
+        db.commit()
+        db.refresh(user)
+
+    token = create_access_token(sub=str(user.id))
+    return TokenOut(access_token=token)
+
+
+@router.post("/apple", response_model=TokenOut)
+def apple_auth(payload: AppleAuthIn, db: Session = Depends(get_db)):
+    apple_audience = os.getenv("APPLE_BUNDLE_ID")
+    if not apple_audience:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="APPLE_BUNDLE_ID is not set on the server",
+        )
+
+    try:
+        claims = _verify_apple_identity_token(payload.identity_token, audience=apple_audience)
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=f"Invalid Apple identity token: {str(e)}",
+        )
+
+    apple_sub = claims["sub"]
+    email = payload.email or claims.get("email")
+
+    user = db.query(User).filter(User.apple_sub == apple_sub).first()
+
+    if not user:
+        if email:
+            existing = db.query(User).filter(User.email == email).first()
+            if existing and existing.apple_sub is None:
+                existing.apple_sub = apple_sub
+                db.commit()
+                db.refresh(existing)
+                user = existing
+            elif existing and existing.apple_sub != apple_sub:
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail="Email already in use by another account.",
+                )
+
+        if not user:
+            if not email:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Email is required for first-time Apple sign-in.",
+                )
+            try:
+                user = User(email=email, hashed_password=None, apple_sub=apple_sub, auth_provider="apple")
+                db.add(user)
+                db.commit()
+                db.refresh(user)
+            except Exception as e:
+                db.rollback()
+                raise HTTPException(
+                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    detail=f"Failed to create Apple user: {str(e)}",
+                )
+
+    token = create_access_token(sub=str(user.id))
+    return TokenOut(access_token=token)
