@@ -1,22 +1,31 @@
 import PrimaryButton from "@/components/atomic/Button/PrimaryButton";
-import LoadingSpinner from "@/components/atomic/Feedback/LoadingSpinner";
 import { login, loginWithApple } from "@/utils/devAuth";
+import { Ionicons } from "@expo/vector-icons";
 import * as AppleAuthentication from "expo-apple-authentication";
 import { useRouter } from "expo-router";
 import { useState } from "react";
-import { Platform, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
+import {
+  ActivityIndicator,
+  Platform,
+  Pressable,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from "react-native";
 
 export default function SignInPage() {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const handleAppleSignIn = async () => {
     setIsLoading(true);
     setError(null);
-
     try {
       const credential = await AppleAuthentication.signInAsync({
         requestedScopes: [
@@ -24,14 +33,8 @@ export default function SignInPage() {
           AppleAuthentication.AppleAuthenticationScope.EMAIL,
         ],
       });
-
-      // identityToken is what your backend should verify.
-      if (!credential.identityToken) {
-        throw new Error("Apple Sign-In did not return an identity token.");
-      }
-
-      const result = await loginWithApple(credential.identityToken);
-      // store token same as your normal login() flow does, then:
+      if (!credential.identityToken) throw new Error("Apple Sign-In did not return an identity token.");
+      await loginWithApple(credential.identityToken);
       router.replace("/(tabs)");
     } catch (err: any) {
       setError(err?.message ?? "Apple Sign-In failed.");
@@ -41,35 +44,15 @@ export default function SignInPage() {
   };
 
   const handleSignIn = async () => {
-    // Validation
-    if (!email.trim()) {
-      setError("Please enter your email");
-      return;
-    }
-    
-    // Basic email validation
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email.trim())) {
-      setError("Please enter a valid email address");
-      return;
-    }
-    
-    if (!password.trim()) {
-      setError("Please enter your password");
-      return;
-    }
-
+    if (!email.trim()) { setError("Please enter your email"); return; }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) { setError("Please enter a valid email"); return; }
+    if (!password.trim()) { setError("Please enter your password"); return; }
     setIsLoading(true);
     setError(null);
-
     try {
-      const result = await login(email.trim(), password);
-      console.log("Login successful:", result);
-      
-      // Navigate to main app on success
+      await login(email.trim(), password);
       router.replace("/(tabs)");
     } catch (err: any) {
-      console.error("Login error:", err);
       setError(err.message || "Failed to sign in. Please check your credentials.");
     } finally {
       setIsLoading(false);
@@ -78,67 +61,83 @@ export default function SignInPage() {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Welcome Back</Text>
-      <Text style={styles.subtitle}>Sign in to continue your analysis</Text>
+      {/* Back */}
+      <TouchableOpacity style={styles.back} onPress={() => router.back()}>
+        <Ionicons name="arrow-back" size={22} color="#0F172A" />
+      </TouchableOpacity>
 
+      {/* Header */}
+      <View style={styles.header}>
+        <Text style={styles.title}>Welcome back</Text>
+        <Text style={styles.subtitle}>Sign in to continue your analysis</Text>
+      </View>
+
+      {/* Error */}
       {error && (
-        <View style={styles.errorContainer}>
+        <View style={styles.errorBox}>
+          <Ionicons name="alert-circle-outline" size={16} color="#DC2626" style={{ marginRight: 8 }} />
           <Text style={styles.errorText}>{error}</Text>
         </View>
       )}
 
-      <TextInput
-        placeholder="Email"
-        value={email}
-        onChangeText={(text) => {
-          setEmail(text);
-          setError(null); // Clear error when user types
-        }}
-        style={[styles.input, error && styles.inputError]}
-        autoCapitalize="none"
-        keyboardType="email-address"
-        autoComplete="email"
-        editable={!isLoading}
-      />
+      {/* Inputs */}
+      <View style={styles.inputGroup}>
+        <Text style={styles.label}>Email</Text>
+        <TextInput
+          placeholder="you@example.com"
+          placeholderTextColor="#94A3B8"
+          value={email}
+          onChangeText={(t) => { setEmail(t); setError(null); }}
+          style={[styles.input, error ? styles.inputError : null]}
+          autoCapitalize="none"
+          keyboardType="email-address"
+          autoComplete="email"
+          editable={!isLoading}
+        />
+      </View>
 
-      <TextInput
-        placeholder="Password"
-        value={password}
-        onChangeText={(text) => {
-          setPassword(text);
-          setError(null); // Clear error when user types
-        }}
-        secureTextEntry
-        style={[styles.input, error && styles.inputError]}
-        autoComplete="password"
-        editable={!isLoading}
-      />
+      <View style={styles.inputGroup}>
+        <Text style={styles.label}>Password</Text>
+        <View style={styles.passwordRow}>
+          <TextInput
+            placeholder="••••••••"
+            placeholderTextColor="#94A3B8"
+            value={password}
+            onChangeText={(t) => { setPassword(t); setError(null); }}
+            secureTextEntry={!showPassword}
+            style={[styles.input, styles.passwordInput, error ? styles.inputError : null]}
+            autoComplete="password"
+            editable={!isLoading}
+          />
+          <Pressable style={styles.eyeBtn} onPress={() => setShowPassword((v) => !v)}>
+            <Ionicons name={showPassword ? "eye-off-outline" : "eye-outline"} size={20} color="#94A3B8" />
+          </Pressable>
+        </View>
+      </View>
 
-      <PrimaryButton
-        title={isLoading ? "Signing In..." : "Sign In"}
-        style={styles.button}
-        onPress={handleSignIn}
-        disabled={isLoading}
-      />
+      {/* Sign In Button */}
+      {isLoading ? (
+        <View style={styles.loadingBtn}>
+          <ActivityIndicator color="#fff" />
+        </View>
+      ) : (
+        <PrimaryButton title="Sign In" onPress={handleSignIn} style={styles.mainBtn} />
+      )}
+
+      {/* Apple */}
       {Platform.OS === "ios" && (
         <PrimaryButton
           title="Continue with Apple"
-          style={styles.appleButton}
           onPress={handleAppleSignIn}
           disabled={isLoading}
+          style={styles.appleBtn}
         />
       )}
 
-      {isLoading && (
-        <View style={styles.loadingContainer}>
-          <LoadingSpinner size="small" />
-        </View>
-      )}
-
-
-      <TouchableOpacity onPress={() => router.push("/signup")} disabled={isLoading}>
-        <Text style={styles.link}>
-          Don't have an account? <Text style={styles.bold}>Sign Up</Text>
+      {/* Footer link */}
+      <TouchableOpacity onPress={() => router.push("/signup")} disabled={isLoading} style={styles.footer}>
+        <Text style={styles.footerText}>
+          Don't have an account? <Text style={styles.footerLink}>Sign Up</Text>
         </Text>
       </TouchableOpacity>
     </View>
@@ -146,40 +145,86 @@ export default function SignInPage() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 32, justifyContent: "center" },
-  title: { fontSize: 34, fontWeight: "800", color: "#1E293B" },
-  subtitle: { fontSize: 15, color: "#64748B", marginBottom: 30 },
-  errorContainer: {
-    backgroundColor: "#FEE2E2",
-    padding: 12,
-    borderRadius: 8,
-    marginBottom: 16,
+  container: {
+    flex: 1,
+    paddingHorizontal: 28,
+    paddingTop: 64,
+    backgroundColor: "#F8FAFC",
+  },
+  back: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: "#F1F5F9",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 32,
+  },
+  header: { marginBottom: 32 },
+  title: {
+    fontSize: 34,
+    fontWeight: "800",
+    color: "#0F172A",
+    letterSpacing: -0.5,
+  },
+  subtitle: {
+    fontSize: 15,
+    color: "#64748B",
+    marginTop: 6,
+  },
+  errorBox: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#FEF2F2",
     borderWidth: 1,
     borderColor: "#FCA5A5",
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 20,
   },
-  errorText: {
-    color: "#DC2626",
-    fontSize: 14,
-    textAlign: "center",
+  errorText: { color: "#DC2626", fontSize: 14, flex: 1 },
+  inputGroup: { marginBottom: 20 },
+  label: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: "#475569",
+    marginBottom: 8,
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
   },
   input: {
-    padding: 16,
+    backgroundColor: "#FFFFFF",
     borderRadius: 14,
-    backgroundColor: "#F1F5F9",
-    borderWidth: 1,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    fontSize: 16,
+    color: "#0F172A",
+    borderWidth: 1.5,
     borderColor: "#E2E8F0",
-    marginBottom: 18,
   },
   inputError: {
     borderColor: "#FCA5A5",
     backgroundColor: "#FEF2F2",
   },
-  button: { marginTop: 10, paddingVertical: 16 },
-  appleButton: { marginTop: 12, paddingVertical: 16 },
-  loadingContainer: {
-    alignItems: "center",
-    marginTop: 16,
+  passwordRow: { position: "relative" },
+  passwordInput: { paddingRight: 50 },
+  eyeBtn: {
+    position: "absolute",
+    right: 14,
+    top: 0,
+    bottom: 0,
+    justifyContent: "center",
   },
-  link: { textAlign: "center", marginTop: 24, color: "#475569", fontSize: 15 },
-  bold: { color: "#3B82F6", fontWeight: "700" },
+  mainBtn: { marginTop: 8 },
+  loadingBtn: {
+    marginTop: 8,
+    backgroundColor: "#6366F1",
+    borderRadius: 50,
+    paddingVertical: 16,
+    alignItems: "center",
+  },
+  appleBtn: { marginTop: 12, backgroundColor: "#0F172A" },
+  footer: { marginTop: 32, alignItems: "center" },
+  footerText: { fontSize: 15, color: "#64748B" },
+  footerLink: { color: "#6366F1", fontWeight: "700" },
 });

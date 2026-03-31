@@ -20,7 +20,7 @@ const PrimaryButton: React.FC<PrimaryButtonProps> = ({
     <TouchableOpacity
       style={[styles.button, disabled && styles.disabled, style]}
       onPress={onPress}
-      activeOpacity={0.7}
+      activeOpacity={0.8}
       disabled={disabled || loading}
     >
       {loading ? (
@@ -34,18 +34,26 @@ const PrimaryButton: React.FC<PrimaryButtonProps> = ({
 
 const styles = StyleSheet.create({
   button: {
-    backgroundColor: "#3B82F6", // Runalyst primary color
-    paddingVertical: 14,
-    borderRadius: 10,
+    backgroundColor: "#6366F1",
+    paddingVertical: 16,
+    borderRadius: 50,
     alignItems: "center",
+    shadowColor: "#6366F1",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 4,
   },
   disabled: {
-    backgroundColor: "#9BBEF5",
+    backgroundColor: "#A5B4FC",
+    shadowOpacity: 0,
+    elevation: 0,
   },
   text: {
     color: "#fff",
     fontSize: 16,
-    fontWeight: "600",
+    fontWeight: "700",
+    letterSpacing: 0.2,
   },
 });
 

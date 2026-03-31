@@ -7,19 +7,24 @@ export default function TabsLayout() {
     <Tabs
       screenOptions={{
         headerShown: false,
-        tabBarActiveTintColor: "#3B82F6",
-        tabBarInactiveTintColor: "#9CA3AF",
+        tabBarActiveTintColor: "#6366F1",
+        tabBarInactiveTintColor: "#94A3B8",
         tabBarStyle: {
           backgroundColor: "#FFFFFF",
-          borderTopWidth: 1,
-          borderTopColor: "#E5E7EB",
+          borderTopWidth: 0,
+          shadowColor: "#000",
+          shadowOffset: { width: 0, height: -4 },
+          shadowOpacity: 0.06,
+          shadowRadius: 12,
+          elevation: 12,
           paddingTop: 8,
           paddingBottom: 8,
           height: 64,
         },
         tabBarLabelStyle: {
-          fontSize: 12,
+          fontSize: 11,
           fontWeight: "600",
+          marginTop: 2,
         },
       }}
     >
@@ -28,29 +33,28 @@ export default function TabsLayout() {
         options={{
           title: "Home",
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="home" size={size} color={color} />
+            <Ionicons name="home-outline" size={size} color={color} />
           ),
         }}
       />
       <Tabs.Screen
         name="history"
         options={{
-          title: "History",
+          title: "Progress",
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="bar-chart" size={size} color={color} />
+            <Ionicons name="trending-up-outline" size={size} color={color} />
           ),
         }}
       />
       <Tabs.Screen
         name="chat"
         options={{
-          title: "Chat",
+          title: "Assistant",
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="chatbubbles" size={size} color={color} />
+            <Ionicons name="sparkles-outline" size={size} color={color} />
           ),
         }}
       />
     </Tabs>
   );
 }
-

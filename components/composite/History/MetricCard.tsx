@@ -13,6 +13,7 @@ interface MetricCardProps {
   unit?: string;          // "steps/min"
   trend?: TrendType;
   trendText?: string;     // "Better than last run"
+  accentColor?: string;   // left border / icon color
   style?: ViewStyle;
 }
 
@@ -22,12 +23,13 @@ const MetricCard: React.FC<MetricCardProps> = ({
   unit,
   trend = "neutral",
   trendText,
+  accentColor,
   style,
 }) => {
   const { iconName, iconColor } = getTrendIcon(trend);
 
   return (
-    <View style={[styles.card, style]}>
+    <View style={[styles.card, accentColor && { borderLeftColor: accentColor, borderLeftWidth: 3 }, style]}>
       <Subtitle style={styles.label}>{label}</Subtitle>
 
       <View style={styles.row}>
