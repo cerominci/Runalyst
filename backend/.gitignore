@@ -23,3 +23,7 @@ env/
 # IDE
 .vscode/
 .idea/
+
+vcs.xml
+misc.xml
+runalyst.iml
