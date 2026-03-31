@@ -9,14 +9,14 @@ export interface TimeSeriesDataPoint {
   cadence: number;
   strideLength: number;
   groundContact: number;
-  verticalOscillation: number;
+  speed: number;
 }
 
 interface LineChartProps {
   title?: string;
   description?: string;
   data: TimeSeriesDataPoint[];
-  selectedMetric?: "cadence" | "strideLength" | "groundContact" | "verticalOscillation";
+  selectedMetric?: "cadence" | "strideLength" | "groundContact" | "speed";
 }
 
 const CHART_HEIGHT = 200;
@@ -42,33 +42,33 @@ const LineChart: React.FC<LineChartProps> = ({
   // Get all metrics to show, or just the selected one
   const metricsToShow = selectedMetric
     ? [selectedMetric]
-    : ["cadence", "strideLength", "groundContact", "verticalOscillation"];
+    : ["cadence", "strideLength", "groundContact", "speed"];
 
   // Calculate max values for normalization
   const maxCadence = Math.max(...data.map((d) => d.cadence)) || 1;
   const maxStride = Math.max(...data.map((d) => d.strideLength)) || 1;
   const maxGroundContact = Math.max(...data.map((d) => d.groundContact)) || 1;
-  const maxVerticalOsc = Math.max(...data.map((d) => d.verticalOscillation)) || 1;
+  const maxSpeed = Math.max(...data.map((d) => d.speed)) || 1;
 
   const colors = {
     cadence: "#3B82F6",
     strideLength: "#10B981",
     groundContact: "#F59E0B",
-    verticalOscillation: "#EF4444",
+    speed: "#EF4444",
   };
 
   const units = {
     cadence: "steps/min",
     strideLength: "m",
     groundContact: "ms",
-    verticalOscillation: "cm",
+    speed: "m/s",
   };
 
   const labels = {
     cadence: "Cadence",
     strideLength: "Stride Length",
     groundContact: "Ground Contact",
-    verticalOscillation: "Vertical Oscillation",
+    speed: "Speed",
   };
 
   // Calculate points for each metric
@@ -80,7 +80,7 @@ const LineChart: React.FC<LineChartProps> = ({
         ? maxStride
         : metric === "groundContact"
         ? maxGroundContact
-        : maxVerticalOsc;
+        : maxSpeed;
 
     return data.map((point, index) => {
       const value =
@@ -90,7 +90,7 @@ const LineChart: React.FC<LineChartProps> = ({
           ? point.strideLength
           : metric === "groundContact"
           ? point.groundContact
-          : point.verticalOscillation;
+          : point.speed;
 
       const x = (index / (data.length - 1 || 1)) * (CHART_WIDTH - CHART_PADDING * 2) + CHART_PADDING;
       const y =
@@ -112,7 +112,7 @@ const LineChart: React.FC<LineChartProps> = ({
               ? maxStride
               : metric === "groundContact"
               ? maxGroundContact
-              : maxVerticalOsc;
+              : maxSpeed;
 
           return (
             <View key={metric} style={styles.metricLine}>

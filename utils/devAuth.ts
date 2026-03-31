@@ -7,7 +7,9 @@ import * as SecureStore from 'expo-secure-store';
 import { Platform } from 'react-native';
 
 // TODO: Replace with your actual backend API base URL
-const API_BASE_URL = 'https://runalyst-backend.onrender.com';
+const API_BASE_URL = __DEV__
+  ? 'http://localhost:8010'
+  : 'https://runalyst-backend.onrender.com';
 
 // Token storage key
 const TOKEN_STORAGE_KEY = 'runalyst_auth_token';
@@ -347,6 +349,55 @@ export async function createRunRecord(video_path: string, title: string): Promis
         throw error;
     }
 }
+// ─── Analysis History ────────────────────────────────────────────────────────
+
+export type AnalysisEntry = {
+  id: number;
+  avg_stride_length: number;
+  avg_gct: number;
+  avg_speed: number;
+  avg_cadence: number;
+  details: Record<string, any>;
+  created_at: string;
+};
+
+export type MetricTrend = {
+  metric_name: string;
+  values: number[];
+  timestamps: string[];
+  percent_change: number | null;
+  trend_direction: "improving" | "declining" | "stable" | "insufficient_data";
+};
+
+export type AnalysisHistory = {
+  analyses: AnalysisEntry[];
+  trends: MetricTrend[];
+};
+
+export async function getAnalysisHistory(): Promise<AnalysisHistory> {
+  const token = await getToken();
+  if (!token) throw new Error("No authentication token found");
+
+  const response = await fetch(`${API_BASE_URL}/analysis/history`, {
+    method: "GET",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+  });
+
+  if (!response.ok) {
+    if (response.status === 401) {
+      await logout();
+      throw new Error("Authentication token is invalid");
+    }
+    const error = await response.json().catch(() => ({ message: "Failed to fetch analysis history" }));
+    throw new Error(error.message || `Failed to fetch analysis history: ${response.statusText}`);
+  }
+
+  return response.json();
+}
+
 // utils/devAuth.ts
 export async function loginWithApple(identityToken: string) {
   const res = await fetch(`${API_BASE_URL}/auth/apple`, {

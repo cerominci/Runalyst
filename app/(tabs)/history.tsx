@@ -2,152 +2,78 @@ import Row from "@/components/atomic/Layout/Row";
 import ScreenContainer from "@/components/atomic/Layout/ScreenContainer";
 import ScrollScreen from "@/components/atomic/Layout/ScrollScreen";
 import Title from "@/components/atomic/Typography/Title";
-import BodyPartSelector from "@/components/composite/History/BodyPartSelector";
-import HistoryChart, { HistoryDataPoint } from "@/components/composite/History/HistoryChart";
-import IntervalSelector from "@/components/composite/History/IntervalSelector";
+import BodyText from "@/components/atomic/Typography/BodyText";
 import LineChart, { TimeSeriesDataPoint } from "@/components/composite/History/LineChart";
 import MetricCard from "@/components/composite/History/MetricCard";
-import React, { useMemo, useState } from "react";
-import { StyleSheet, View } from "react-native";
+import IntervalSelector from "@/components/composite/History/IntervalSelector";
+import { AnalysisEntry, getAnalysisHistory } from "@/utils/devAuth";
+import React, { useEffect, useMemo, useState } from "react";
+import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
 
-// TODO: Replace mock data with actual database fetch
-// Example: const fetchHistoryData = async (interval: string, bodyPart: string | null) => { ... }
+type MetricKey = "cadence" | "strideLength" | "groundContact" | "speed";
 
-// Helper function to generate dates based on interval
-const generateDates = (interval: string): string[] => {
-  const today = new Date();
-  const dates: string[] = [];
-  const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-
-  let daysCount = 7;
-  if (interval.includes("2 days")) daysCount = 2;
-  else if (interval.includes("10 days")) daysCount = 10;
-  else if (interval.includes("month")) daysCount = 30;
-  else if (interval.includes("videos")) daysCount = 4;
-
-  for (let i = daysCount - 1; i >= 0; i--) {
-    const date = new Date(today);
-    date.setDate(date.getDate() - i);
-    const day = date.getDate();
-    const month = monthNames[date.getMonth()];
-    dates.push(`${day} ${month}`);
-  }
-
-  return dates;
+const METRIC_CONFIG: Record<MetricKey, { label: string; unit: string }> = {
+  cadence:       { label: "Cadence",        unit: "steps/min" },
+  strideLength:  { label: "Stride Length",  unit: "m"         },
+  groundContact: { label: "Ground Contact", unit: "ms"        },
+  speed:         { label: "Speed",          unit: "m/s"       },
 };
 
-// Mock data generator - will be replaced with database queries
-const generateMockData = (
-  interval: string,
-  bodyPart: string | null
-): {
-  chartData: HistoryDataPoint[];
-  timeSeriesData: TimeSeriesDataPoint[];
-  metrics: {
-    cadence: { value: string; trend: "up" | "down" | "neutral" };
-    strideLength: { value: string; trend: "up" | "down" | "neutral" };
-    groundContact: { value: string; trend: "up" | "down" | "neutral" };
-    verticalOscillation: { value: string; trend: "up" | "down" | "neutral" };
-  };
-} => {
-  // Generate different data based on interval and body part
-  const intervalMultiplier = interval.includes("2 days") ? 1 : interval.includes("10 days") ? 5 : 2;
-  const bodyPartModifier = bodyPart === "Knees" ? 0.9 : bodyPart === "Hips" ? 1.1 : 1.0;
+const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
 
-  const dates = generateDates(interval);
-  const daysCount = dates.length;
-
-  // Generate time series data with all metrics
-  const timeSeriesData: TimeSeriesDataPoint[] = dates.map((date, index) => {
-    // Create variation in values over time
-    const variation = 1 + (Math.sin(index * 0.5) * 0.15); // Sine wave for natural variation
-    const trend = 1 + (index / daysCount) * 0.1; // Slight upward trend
-
-    return {
-      date,
-      cadence: Math.round(165 * variation * trend * bodyPartModifier),
-      strideLength: Number((1.15 * variation * trend * bodyPartModifier).toFixed(2)),
-      groundContact: Math.round(225 * (1 / variation) * (1 / trend) * bodyPartModifier),
-      verticalOscillation: Number((8.2 * variation * (1 / trend) * bodyPartModifier).toFixed(1)),
-    };
-  });
-
-  // Generate bar chart data (aggregated score)
-  const baseValues = [85, 92, 78, 95, 88, 90, 87];
-  const chartData: HistoryDataPoint[] = baseValues.slice(0, daysCount).map((val, index) => ({
-    label: interval.includes("videos")
-      ? `Run #${index + 1}`
-      : dates[index] || `Day ${index + 1}`,
-    value: Math.round(val * intervalMultiplier * bodyPartModifier),
-  }));
-
-  // Calculate average metrics for metric cards
-  const avgCadence = Math.round(
-    timeSeriesData.reduce((sum, d) => sum + d.cadence, 0) / timeSeriesData.length
-  );
-  const avgStride = Number(
-    (timeSeriesData.reduce((sum, d) => sum + d.strideLength, 0) / timeSeriesData.length).toFixed(2)
-  );
-  const avgGroundContact = Math.round(
-    timeSeriesData.reduce((sum, d) => sum + d.groundContact, 0) / timeSeriesData.length
-  );
-  const avgVerticalOsc = Number(
-    (timeSeriesData.reduce((sum, d) => sum + d.verticalOscillation, 0) / timeSeriesData.length).toFixed(1)
-  );
-
-  // Determine trends based on first vs last value
-  const first = timeSeriesData[0];
-  const last = timeSeriesData[timeSeriesData.length - 1];
-
+function toChartPoint(entry: AnalysisEntry): TimeSeriesDataPoint {
+  const d = new Date(entry.created_at);
   return {
-    chartData,
-    timeSeriesData,
-    metrics: {
-      cadence: {
-        value: avgCadence.toString(),
-        trend: last.cadence > first.cadence ? "up" : last.cadence < first.cadence ? "down" : "neutral",
-      },
-      strideLength: {
-        value: avgStride.toString(),
-        trend: last.strideLength > first.strideLength ? "up" : "neutral",
-      },
-      groundContact: {
-        value: avgGroundContact.toString(),
-        trend: last.groundContact < first.groundContact ? "down" : "neutral",
-      },
-      verticalOscillation: {
-        value: avgVerticalOsc.toString(),
-        trend: last.verticalOscillation < first.verticalOscillation ? "down" : "neutral",
-      },
-    },
+    date: `${d.getDate()} ${MONTHS[d.getMonth()]}`,
+    cadence:       entry.avg_cadence,
+    strideLength:  entry.avg_stride_length,
+    groundContact: entry.avg_gct,
+    speed:         entry.avg_speed,
   };
-};
+}
+
+function filterByInterval(analyses: AnalysisEntry[], interval: string | null): AnalysisEntry[] {
+  if (!interval) return analyses;
+  if (interval.includes("4 videos")) return analyses.slice(-4);
+  const days = interval.includes("2 days") ? 2 : interval.includes("10 days") ? 10 : 30;
+  const cutoff = Date.now() - days * 24 * 60 * 60 * 1000;
+  return analyses.filter((a) => new Date(a.created_at).getTime() >= cutoff);
+}
+
+function computeTrend(entries: AnalysisEntry[], key: keyof AnalysisEntry): "up" | "down" | "neutral" {
+  if (entries.length < 2) return "neutral";
+  const first = entries[0][key] as number;
+  const last  = entries[entries.length - 1][key] as number;
+  if (last > first) return "up";
+  if (last < first) return "down";
+  return "neutral";
+}
 
 export default function HistoryScreen() {
+  const [analyses, setAnalyses]             = useState<AnalysisEntry[]>([]);
+  const [loading, setLoading]               = useState(true);
+  const [error, setError]                   = useState<string | null>(null);
   const [selectedInterval, setSelectedInterval] = useState<string | null>(null);
-  const [selectedBodyPart, setSelectedBodyPart] = useState<string | null>(null);
+  const [selectedMetric, setSelectedMetric] = useState<MetricKey>("speed");
 
-  // TODO: Replace with actual database query
-  // const { data, loading, error } = useQuery(GET_HISTORY_DATA, {
-  //   variables: { interval: selectedInterval, bodyPart: selectedBodyPart }
-  // });
+  useEffect(() => {
+    getAnalysisHistory()
+      .then((data) => setAnalyses(data.analyses))
+      .catch((e) => setError(e.message ?? "Failed to load history"))
+      .finally(() => setLoading(false));
+  }, []);
 
-  // Generate mock data based on selections
-  const { chartData, timeSeriesData, metrics } = useMemo(() => {
-    if (!selectedInterval) {
-      return {
-        chartData: [],
-        timeSeriesData: [],
-        metrics: {
-          cadence: { value: "--", trend: "neutral" as const },
-          strideLength: { value: "--", trend: "neutral" as const },
-          groundContact: { value: "--", trend: "neutral" as const },
-          verticalOscillation: { value: "--", trend: "neutral" as const },
-        },
-      };
-    }
-    return generateMockData(selectedInterval, selectedBodyPart);
-  }, [selectedInterval, selectedBodyPart]);
+  const filtered = useMemo(
+    () => filterByInterval(analyses, selectedInterval),
+    [analyses, selectedInterval]
+  );
+
+  const chartData: TimeSeriesDataPoint[] = useMemo(
+    () => filtered.map(toChartPoint),
+    [filtered]
+  );
+
+  const latest = filtered[filtered.length - 1];
 
   return (
     <ScreenContainer>
@@ -164,99 +90,116 @@ export default function HistoryScreen() {
           />
         </View>
 
-        {/* Body Part Selector */}
-        {selectedInterval && (
-          <BodyPartSelector
-            selectedPart={selectedBodyPart}
-            onSelect={setSelectedBodyPart}
-          />
-        )}
-
-        {/* Metrics Cards */}
-        {selectedInterval && (
-          <View style={styles.metricsContainer}>
-            <Row style={styles.metricsRow}>
-              <MetricCard
-                label="Cadence"
-                value={metrics.cadence.value}
-                unit="steps/min"
-                trend={metrics.cadence.trend}
-                trendText={
-                  metrics.cadence.trend === "up"
-                    ? "Better than last run"
-                    : metrics.cadence.trend === "down"
-                    ? "Lower than last run"
-                    : undefined
-                }
-                style={styles.metricCard}
-              />
-              <MetricCard
-                label="Stride Length"
-                value={metrics.strideLength.value}
-                unit="m"
-                trend={metrics.strideLength.trend}
-                trendText={
-                  metrics.strideLength.trend === "up"
-                    ? "Improved"
-                    : undefined
-                }
-                style={styles.metricCard}
-              />
-            </Row>
-
-            <Row style={styles.metricsRow}>
-              <MetricCard
-                label="Ground Contact"
-                value={metrics.groundContact.value}
-                unit="ms"
-                trend={metrics.groundContact.trend}
-                trendText={
-                  metrics.groundContact.trend === "down"
-                    ? "Improved"
-                    : undefined
-                }
-                style={styles.metricCard}
-              />
-              <MetricCard
-                label="Vertical Oscillation"
-                value={metrics.verticalOscillation.value}
-                unit="cm"
-                trend={metrics.verticalOscillation.trend}
-                trendText={
-                  metrics.verticalOscillation.trend === "down"
-                    ? "Improved"
-                    : undefined
-                }
-                style={styles.metricCard}
-              />
-            </Row>
+        {/* Loading / Error */}
+        {loading && (
+          <View style={styles.centered}>
+            <ActivityIndicator size="large" color="#3B82F6" />
           </View>
         )}
 
-        {/* Line Chart - All Metrics Over Time */}
-        {selectedInterval && timeSeriesData.length > 0 && (
-          <LineChart
-            title="Metrics Over Time"
-            description={`Track all your performance metrics across ${selectedInterval.toLowerCase()}.`}
-            data={timeSeriesData}
-          />
-        )}
-
-        {/* History Chart - Aggregated Score */}
-        {selectedInterval && (
-          <HistoryChart
-            title="Performance Score"
-            description={`Overall performance score for ${selectedBodyPart || "all body parts"} over ${selectedInterval.toLowerCase()}.`}
-            data={chartData}
-            unit="score"
-          />
-        )}
-
-        {/* Empty State */}
-        {!selectedInterval && (
-          <View style={styles.emptyState}>
-            {/* Empty state can be enhanced with an icon or illustration */}
+        {!loading && error && (
+          <View style={styles.centered}>
+            <BodyText style={styles.errorText}>{error}</BodyText>
           </View>
+        )}
+
+        {/* Empty state */}
+        {!loading && !error && filtered.length === 0 && (
+          <View style={styles.centered}>
+            <BodyText style={styles.emptyText}>
+              No runs found for this period. Upload a video to get started.
+            </BodyText>
+          </View>
+        )}
+
+        {/* Content */}
+        {!loading && !error && filtered.length > 0 && (
+          <>
+            {/* Metric Cards */}
+            <View style={styles.metricsContainer}>
+              <Row style={styles.metricsRow}>
+                <MetricCard
+                  label="Cadence"
+                  value={latest ? String(Math.round(latest.avg_cadence)) : "--"}
+                  unit="steps/min"
+                  trend={computeTrend(filtered, "avg_cadence")}
+                  trendText={
+                    computeTrend(filtered, "avg_cadence") === "up" ? "Improved" :
+                    computeTrend(filtered, "avg_cadence") === "down" ? "Declined" : undefined
+                  }
+                  style={styles.metricCard}
+                />
+                <MetricCard
+                  label="Stride Length"
+                  value={latest ? latest.avg_stride_length.toFixed(2) : "--"}
+                  unit="m"
+                  trend={computeTrend(filtered, "avg_stride_length")}
+                  trendText={
+                    computeTrend(filtered, "avg_stride_length") === "up" ? "Improved" :
+                    computeTrend(filtered, "avg_stride_length") === "down" ? "Declined" : undefined
+                  }
+                  style={styles.metricCard}
+                />
+              </Row>
+              <Row style={styles.metricsRow}>
+                <MetricCard
+                  label="Ground Contact"
+                  value={latest ? String(Math.round(latest.avg_gct)) : "--"}
+                  unit="ms"
+                  trend={computeTrend(filtered, "avg_gct")}
+                  trendText={
+                    computeTrend(filtered, "avg_gct") === "down" ? "Improved" :
+                    computeTrend(filtered, "avg_gct") === "up" ? "Declined" : undefined
+                  }
+                  style={styles.metricCard}
+                />
+                <MetricCard
+                  label="Speed"
+                  value={latest ? latest.avg_speed.toFixed(2) : "--"}
+                  unit="m/s"
+                  trend={computeTrend(filtered, "avg_speed")}
+                  trendText={
+                    computeTrend(filtered, "avg_speed") === "up" ? "Improved" :
+                    computeTrend(filtered, "avg_speed") === "down" ? "Declined" : undefined
+                  }
+                  style={styles.metricCard}
+                />
+              </Row>
+            </View>
+
+            {/* Metric Switcher */}
+            <View style={styles.switcherContainer}>
+              <Row style={styles.switcherRow}>
+                {(Object.keys(METRIC_CONFIG) as MetricKey[]).map((key) => (
+                  <Pressable
+                    key={key}
+                    style={[
+                      styles.switcherChip,
+                      selectedMetric === key && styles.switcherChipActive,
+                    ]}
+                    onPress={() => setSelectedMetric(key)}
+                  >
+                    <Text
+                      style={[
+                        styles.switcherLabel,
+                        selectedMetric === key && styles.switcherLabelActive,
+                      ]}
+                    >
+                      {METRIC_CONFIG[key].label}
+                    </Text>
+                  </Pressable>
+                ))}
+              </Row>
+            </View>
+
+            {/* Line Chart */}
+            <LineChart
+              title={`${METRIC_CONFIG[selectedMetric].label} Over Time`}
+              description={`${METRIC_CONFIG[selectedMetric].label} (${METRIC_CONFIG[selectedMetric].unit}) across your recorded runs.`}
+              data={chartData}
+              selectedMetric={selectedMetric}
+            />
+          </>
         )}
       </ScrollScreen>
     </ScreenContainer>
@@ -278,6 +221,23 @@ const styles = StyleSheet.create({
     marginTop: 12,
     marginBottom: 8,
   },
+  centered: {
+    marginTop: 60,
+    alignItems: "center",
+    justifyContent: "center",
+    minHeight: 120,
+  },
+  errorText: {
+    color: "#DC2626",
+    textAlign: "center",
+    paddingHorizontal: 20,
+  },
+  emptyText: {
+    color: "#9CA3AF",
+    textAlign: "center",
+    paddingHorizontal: 32,
+    lineHeight: 22,
+  },
   metricsContainer: {
     marginTop: 20,
     gap: 16,
@@ -288,11 +248,33 @@ const styles = StyleSheet.create({
   metricCard: {
     flex: 1,
   },
-  emptyState: {
-    marginTop: 60,
-    alignItems: "center",
-    justifyContent: "center",
-    minHeight: 240,
-    paddingHorizontal: 20,
+  switcherContainer: {
+    marginTop: 24,
+    marginBottom: 4,
+  },
+  switcherRow: {
+    gap: 8,
+    flexWrap: "wrap",
+  },
+  switcherChip: {
+    paddingVertical: 7,
+    paddingHorizontal: 14,
+    borderRadius: 20,
+    backgroundColor: "#F1F5F9",
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+  },
+  switcherChipActive: {
+    backgroundColor: "#3B82F6",
+    borderColor: "#3B82F6",
+  },
+  switcherLabel: {
+    fontSize: 13,
+    fontWeight: "500",
+    color: "#64748B",
+  },
+  switcherLabelActive: {
+    color: "#FFFFFF",
+    fontWeight: "600",
   },
 });
