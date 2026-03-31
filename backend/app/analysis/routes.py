@@ -1,4 +1,7 @@
+from typing import List
+
 from fastapi import Depends, status, APIRouter, HTTPException
+from sqlalchemy import desc
 from sqlalchemy.orm import Session
 
 from app.analysis.schemas import AnalysisCreateIn, AnalysisOut
@@ -16,7 +19,6 @@ def save_analysis_results(
         payload: AnalysisCreateIn,
         db: Session = Depends(get_db)
 ):
-    # Unpack the Pydantic model into the SQLAlchemy model
     new_result = AnalysisResult(
         run_id=payload.run_id,
         avg_stride_length=payload.avg_stride_length,
@@ -28,7 +30,6 @@ def save_analysis_results(
 
     db.add(new_result)
 
-    # Update the Run status to 'completed' since we have results now!
     run = db.query(Run).filter(Run.id == payload.run_id).first()
     if run:
         run.status = "completed"
@@ -59,3 +60,22 @@ def get_analysis(
         )
 
     return analysis
+
+
+@router.get("/all", response_model=List[AnalysisOut])
+def get_all_user_analyses(
+        db: Session = Depends(get_db),
+        current_user: User = Depends(get_current_user)
+):
+    results = (
+        db.query(AnalysisResult)
+        .join(Run, AnalysisResult.run_id == Run.id)
+        .filter(Run.user_id == current_user.id)
+        .order_by(desc(AnalysisResult.created_at))
+        .all()
+    )
+
+    if not results:
+        return []
+
+    return results
