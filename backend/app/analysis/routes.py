@@ -1,4 +1,5 @@
 from typing import List
+import logging
 
 from fastapi import Depends, status, APIRouter, HTTPException
 from sqlalchemy import desc
@@ -13,28 +14,47 @@ from app.models.user import User
 
 router = APIRouter(prefix="/analysis", tags=["analyses"])
 
-@router.post("/save",status_code=status.HTTP_201_CREATED)
+logger = logging.getLogger(__name__)
 
+@router.post("/save",status_code=status.HTTP_201_CREATED)
 def save_analysis_results(
         payload: AnalysisCreateIn,
         db: Session = Depends(get_db)
 ):
-    new_result = AnalysisResult(
-        run_id=payload.run_id,
-        avg_stride_length=payload.avg_stride_length,
-        avg_gct=payload.avg_gct,
-        avg_speed=payload.avg_speed,
-        avg_cadence=payload.avg_cadence,
-        details=payload.details
-    )
+    existing_analysis = db.query(AnalysisResult).filter(
+        AnalysisResult.run_id == payload.run_id
+    ).first()
 
-    db.add(new_result)
+    if existing_analysis:
+        logger.info(f"Overwriting existing analysis for run_id: {payload.run_id}")
+
+        existing_analysis.avg_stride_length = payload.avg_stride_length
+        existing_analysis.avg_gct = payload.avg_gct
+        existing_analysis.avg_speed = payload.avg_speed
+        existing_analysis.avg_cadence = payload.avg_cadence
+        existing_analysis.details = payload.details
+    else:
+        new_result = AnalysisResult(
+            run_id=payload.run_id,
+            avg_stride_length=payload.avg_stride_length,
+            avg_gct=payload.avg_gct,
+            avg_speed=payload.avg_speed,
+            avg_cadence=payload.avg_cadence,
+            details=payload.details
+        )
+        db.add(new_result)
 
     run = db.query(Run).filter(Run.id == payload.run_id).first()
     if run:
         run.status = "completed"
 
-    db.commit()
+    try:
+        db.commit()
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Failed to save analysis for run {payload.run_id}: {str(e)}")
+        raise HTTPException(status_code=500, detail="Database commit failed")
+
     return {"message": "Analysis saved successfully"}
 
 @router.post("/get", response_model=AnalysisOut, status_code=status.HTTP_200_OK)
