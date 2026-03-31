@@ -16,8 +16,15 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade():
-    op.add_column("users", sa.Column("apple_sub", sa.String(length=255), nullable=True))
-    op.create_unique_constraint("uq_users_apple_sub", "users", ["apple_sub"])
+    conn = op.get_bind()
+    inspector = sa.inspect(conn)
+    columns = [c["name"] for c in inspector.get_columns("users")]
+    if "apple_sub" not in columns:
+        op.add_column("users", sa.Column("apple_sub", sa.String(length=255), nullable=True))
+
+    constraints = [c["name"] for c in inspector.get_unique_constraints("users")]
+    if "uq_users_apple_sub" not in constraints:
+        op.create_unique_constraint("uq_users_apple_sub", "users", ["apple_sub"])
 
 
 def downgrade():
