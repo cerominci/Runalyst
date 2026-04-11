@@ -1,4 +1,4 @@
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 from pydantic import BaseModel
 
 
@@ -14,3 +14,16 @@ class AnalysisFeedbackResponse(BaseModel):
     payload: Dict[str, Any]
     prompt: str
     llm_feedback: Dict[str, Any]
+
+
+# --- Chat / historical feedback schemas ---
+
+class ChatRequest(BaseModel):
+    user_id: str
+    question: str
+
+
+class ChatResponse(BaseModel):
+    question: str
+    n_runs_considered: int
+    answer: str
