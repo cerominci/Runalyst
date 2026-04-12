@@ -2,6 +2,8 @@ from datetime import datetime
 from sqlalchemy import String, Boolean, Integer, DateTime, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.db.base import Base
+from sqlalchemy import Column, String
+
 
 
 class User(Base):
@@ -19,13 +21,19 @@ class User(Base):
         index=True, 
         nullable=False
     )
-    hashed_password: Mapped[str | None] = mapped_column(
+
+    apple_sub: Mapped[str | None] = mapped_column(
         String(255),
+        unique=True,
+        index=True,
         nullable=True
     )
+    hashed_password: Mapped[str | None] = mapped_column(String(255), nullable=True)
+
     auth_provider: Mapped[str] = mapped_column(String(32), nullable=False, server_default="local")
+    
     google_sub: Mapped[str | None] = mapped_column(String(64), unique=True, nullable=True)
-    apple_sub: Mapped[str | None] = mapped_column(String(255), unique=True, nullable=True)
+
     is_active: Mapped[bool] = mapped_column(
         Boolean, 
         nullable=False, 
@@ -38,8 +46,6 @@ class User(Base):
     )
 
     runs = relationship("Run", back_populates="owner", cascade="all, delete-orphan")
-    # Add this alongside your 'runs' relationship
-    profile = relationship("ProfileInfo", back_populates="user", uselist=False, cascade="all, delete-orphan")
     
     def __repr__(self) -> str:
         return f"<User(id={self.id}, email='{self.email}')>"

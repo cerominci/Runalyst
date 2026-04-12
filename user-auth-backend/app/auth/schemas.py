@@ -1,7 +1,14 @@
-from typing import Optional
 from pydantic import BaseModel, EmailStr, Field
-from datetime import datetime
-from app.core.enums import Gender, ExperienceLevel, RunningGoal
+from datetime import datetime  # <-- Added import here to define the type
+
+
+from pydantic import BaseModel
+from typing import Optional
+
+class AppleAuthIn(BaseModel):
+    identity_token: str
+    email: Optional[str] = None
+    full_name: Optional[str] = None
 
 class SignUpIn(BaseModel):
     email: EmailStr
@@ -15,32 +22,22 @@ class SignUpIn(BaseModel):
             }
         }
 
-class ProfileUpdateIn(BaseModel):
-    age: Optional[int] = None
-    weight: Optional[float] = None
-    height: Optional[float] = None
-    bio: Optional[str] = None
-    gender: Optional[Gender] = None
-    experience_level: Optional[ExperienceLevel] = None
-    running_goal: Optional[RunningGoal] = None
-    has_injuries: Optional[bool] = None
-
-
-class ProfileOut(ProfileUpdateIn):
-    class Config:
-        from_attributes = True
+class LoginIn(BaseModel):
+    email: EmailStr
+    password: str
 
 
 class TokenOut(BaseModel):
     access_token: str
     token_type: str = "bearer"
 
+
 class UserOut(BaseModel):
     id: int
     email: EmailStr
     is_active: bool
-    created_at: datetime
-    profile: Optional[ProfileOut] = None 
+    # FIX: Change type hint from 'str' to 'datetime'
+    created_at: datetime 
     
     class Config:
         from_attributes = True
@@ -54,8 +51,3 @@ class PasswordResetIn(BaseModel):
 
 class GoogleAuthIn(BaseModel):
     token: str
-
-class AppleAuthIn(BaseModel):
-    identity_token: str
-    email: Optional[str] = None
-    full_name: Optional[str] = None

@@ -1,30 +1,31 @@
-import logging
-import os
-import time
 import uuid
 
-import requests
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
-from jose import jwt
 from sqlalchemy.orm import Session
 
 from app.deps.auth import get_current_user
 from app.deps.db import get_db
 from app.models.user import User
-from app.models.profile_info import ProfileInfo
-from app.auth.schemas import SignUpIn, TokenOut, UserOut, ProfileUpdateIn, ProfileOut, GoogleAuthIn, AppleAuthIn
+from app.auth.schemas import SignUpIn, TokenOut, UserOut
 from app.core.security import hash_password, verify_password, create_access_token, decode_access_token
 from app.auth.schemas import PasswordResetRequestIn, PasswordResetIn
 from app.core.security import create_password_reset_token, decode_password_reset_token
-from app.core.google_oauth import verify_google_id_token
 from app.services.storage import supabase_client
+from app.auth.schemas import GoogleAuthIn
+from app.core.google_oauth import verify_google_id_token
+
+import os
+import time
+import requests
+from jose import jwt
 
 APPLE_JWKS_URL = "https://appleid.apple.com/auth/keys"
 APPLE_ISSUER = "https://appleid.apple.com"
+
 _JWKS_CACHE = None
 _JWKS_CACHE_TS = 0
-_JWKS_TTL_SECONDS = 60 * 60
+_JWKS_TTL_SECONDS = 60 * 60  # 1 hour
 
 
 def _get_apple_jwks():
@@ -32,6 +33,7 @@ def _get_apple_jwks():
     now = time.time()
     if _JWKS_CACHE and (now - _JWKS_CACHE_TS) < _JWKS_TTL_SECONDS:
         return _JWKS_CACHE
+
     resp = requests.get(APPLE_JWKS_URL, timeout=10)
     resp.raise_for_status()
     _JWKS_CACHE = resp.json()
@@ -39,16 +41,19 @@ def _get_apple_jwks():
     return _JWKS_CACHE
 
 
-def _verify_apple_identity_token(identity_token: str, audience: str) -> dict:
+def verify_apple_identity_token(identity_token: str, audience: str) -> dict:
     jwks = _get_apple_jwks()
     headers = jwt.get_unverified_header(identity_token)
+
     kid = headers.get("kid")
     alg = headers.get("alg")
     if not kid or not alg:
         raise ValueError("Invalid Apple token header (missing kid/alg).")
+
     key = next((k for k in jwks.get("keys", []) if k.get("kid") == kid), None)
     if not key:
         raise ValueError("Apple public key not found (kid mismatch).")
+
     claims = jwt.decode(
         identity_token,
         key,
@@ -57,6 +62,7 @@ def _verify_apple_identity_token(identity_token: str, audience: str) -> dict:
         issuer=APPLE_ISSUER,
         options={"verify_aud": True, "verify_iss": True, "verify_exp": True},
     )
+
     if "sub" not in claims:
         raise ValueError("Apple token missing 'sub' claim.")
     return claims
@@ -104,25 +110,110 @@ def signup(payload: SignUpIn, db: Session = Depends(get_db)):
 
 
 @router.post("/login", response_model=TokenOut)
-def login(payload: SignUpIn, db: Session = Depends(get_db)):
+def login(payload: LoginIn, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.email == payload.email).first()
+
+    # If user exists but has no password (if you later allow nullable), treat as invalid
     if not user or not user.hashed_password or not verify_password(payload.password, user.hashed_password):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid credentials"
         )
-    
+
     token = create_access_token(sub=str(user.id))
     return TokenOut(access_token=token)
+
 
 @router.get("/me", response_model=UserOut)
 def me(current_user: User = Depends(get_current_user)):
     return current_user
 
+
 @router.post("/test")
 def test_endpoint():
-    logging.info("Test endpoint is working!, remove this in prod")
     return {"msg": "Test endpoint is working!"}
+
+from app.auth.schemas import AppleAuthIn  # add this with your other schema imports
+
+@router.post("/apple", response_model=TokenOut)
+def apple_auth(payload: AppleAuthIn, db: Session = Depends(get_db)):
+    """
+    Sign-in + Sign-up with Apple:
+    - Verify identity_token with Apple
+    - Find user by apple_sub
+    - If not found, create user (signup)
+    - Return your app JWT
+    """
+
+    # IMPORTANT: This must be your iOS Bundle ID (aud claim), e.g. "tr.edu.metu.runalyst"
+    apple_audience = os.getenv("APPLE_BUNDLE_ID")
+    if not apple_audience:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="APPLE_BUNDLE_ID is not set on the server",
+        )
+
+    try:
+        claims = verify_apple_identity_token(payload.identity_token, audience=apple_audience)
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=f"Invalid Apple identity token: {str(e)}",
+        )
+
+    apple_sub = claims["sub"]
+
+    # Apple sometimes includes email only at first authorization
+    email = payload.email or claims.get("email")
+    full_name = payload.full_name
+
+    # 1) Existing Apple-linked account?
+    user = db.query(User).filter(User.apple_sub == apple_sub).first()
+
+    # 2) If not, create/link
+    if not user:
+        # Optional: link to an existing email account (only if you want this behavior)
+        if email:
+            existing_email_user = db.query(User).filter(User.email == email).first()
+            if existing_email_user and existing_email_user.apple_sub is None:
+                existing_email_user.apple_sub = apple_sub
+                if full_name and getattr(existing_email_user, "full_name", None) in (None, ""):
+                    existing_email_user.full_name = full_name
+                db.add(existing_email_user)
+                db.commit()
+                db.refresh(existing_email_user)
+                user = existing_email_user
+            elif existing_email_user and existing_email_user.apple_sub != apple_sub:
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail="Email already in use by another account.",
+                )
+
+        # Still no user -> create new Apple user
+        if not user:
+            try:
+                user = User(
+                    email=email,
+                    hashed_password=None,  # Apple-only account
+                    apple_sub=apple_sub,
+                )
+                # If your User model has full_name, you can set it:
+                if hasattr(user, "full_name"):
+                    user.full_name = full_name
+
+                db.add(user)
+                db.commit()
+                db.refresh(user)
+            except Exception as e:
+                db.rollback()
+                raise HTTPException(
+                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    detail=f"Failed to create Apple user: {str(e)}",
+                )
+
+    # 3) Issue your normal token (same style as /login)
+    token = create_access_token(sub=str(user.id))
+    return TokenOut(access_token=token)
 
 @router.post("/request-password-reset")
 def request_password_reset(
@@ -231,44 +322,8 @@ def create_upload_url(current_user: User = Depends(get_current_user)):
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to create upload URL: {str(e)}"
         )
-
-
-@router.patch("/update-profile", response_model=ProfileOut)
-def update_profile(
-        payload: ProfileUpdateIn,
-        current_user: User = Depends(get_current_user),
-        db: Session = Depends(get_db)
-):
-    # 1. Try to find existing profile for this user
-    profile = db.query(ProfileInfo).filter(ProfileInfo.user_id == current_user.id).first()
-
-    # 2. Extract the data sent in the request
-    # We want Enum objects, not strings, for SQLAlchemy Enum columns
-    update_data = payload.model_dump(exclude_unset=True)
-
-    try:
-        if not profile:
-            # Create new profile if it doesn't exist
-            profile = ProfileInfo(user_id=current_user.id, **update_data)
-            db.add(profile)
-        else:
-            # Update only the fields provided in the payload
-            for key, value in update_data.items():
-                setattr(profile, key, value)
-
-        db.commit()
-        db.refresh(profile)
-        return profile
-
-    except Exception as e:
-        db.rollback()
-        print(f"Error updating profile: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to update profile information"
-        )
-
-
+  
+    
 @router.post("/google", response_model=TokenOut)
 def google_login(payload: GoogleAuthIn, db: Session = Depends(get_db)):
     info = verify_google_id_token(payload.token)
@@ -282,69 +337,10 @@ def google_login(payload: GoogleAuthIn, db: Session = Depends(get_db)):
 
     user = db.query(User).filter(User.email == email).first()
     if not user:
-        google_sub = info.get("sub")
-        user = User(email=email, hashed_password=None, auth_provider="google", google_sub=google_sub)
+        user = User(email=email, hashed_password=None)
         db.add(user)
         db.commit()
         db.refresh(user)
-
-    token = create_access_token(sub=str(user.id))
-    return TokenOut(access_token=token)
-
-
-@router.post("/apple", response_model=TokenOut)
-def apple_auth(payload: AppleAuthIn, db: Session = Depends(get_db)):
-    apple_audience = os.getenv("APPLE_BUNDLE_ID")
-    if not apple_audience:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="APPLE_BUNDLE_ID is not set on the server",
-        )
-
-    try:
-        claims = _verify_apple_identity_token(payload.identity_token, audience=apple_audience)
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail=f"Invalid Apple identity token: {str(e)}",
-        )
-
-    apple_sub = claims["sub"]
-    email = payload.email or claims.get("email")
-
-    user = db.query(User).filter(User.apple_sub == apple_sub).first()
-
-    if not user:
-        if email:
-            existing = db.query(User).filter(User.email == email).first()
-            if existing and existing.apple_sub is None:
-                existing.apple_sub = apple_sub
-                db.commit()
-                db.refresh(existing)
-                user = existing
-            elif existing and existing.apple_sub != apple_sub:
-                raise HTTPException(
-                    status_code=status.HTTP_409_CONFLICT,
-                    detail="Email already in use by another account.",
-                )
-
-        if not user:
-            if not email:
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="Email is required for first-time Apple sign-in.",
-                )
-            try:
-                user = User(email=email, hashed_password=None, apple_sub=apple_sub, auth_provider="apple")
-                db.add(user)
-                db.commit()
-                db.refresh(user)
-            except Exception as e:
-                db.rollback()
-                raise HTTPException(
-                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                    detail=f"Failed to create Apple user: {str(e)}",
-                )
 
     token = create_access_token(sub=str(user.id))
     return TokenOut(access_token=token)
