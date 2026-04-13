@@ -1,14 +1,11 @@
 import asyncio
 import json
 import logging
-import os
 
-# Import the shared AWS client and DB session
 from app.core.aws_client import sqs_client, SQS_QUEUE_URL
 from app.deps.db import SessionLocal
 from app.crud import run as crud_run
 
-# Setup logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 

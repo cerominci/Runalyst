@@ -3,11 +3,8 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.db.session import db_ping
-from app.auth import routes as auth_router
-from app.runs import routes as runs_router
-from app.model_results import routes as model_results_router
-from app.analysis import routes as analysis_router
 from app.workers.dispatcher import run_dispatcher_periodically
+from app.api.router import api_router as main_router
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -60,12 +57,7 @@ def health_db():
 
 
 # Include routers
-app.include_router(auth_router.router)
-
-app.include_router(runs_router.router)
-app.include_router(model_results_router.router)
-
-app.include_router(analysis_router.router)
+app.include_router(main_router)
 
 @app.get("/")
 def read_root():
