@@ -18,7 +18,7 @@ from app.core.security import hash_password, verify_password, create_access_toke
 from app.auth.schemas import PasswordResetRequestIn, PasswordResetIn
 from app.core.security import create_password_reset_token, decode_password_reset_token
 from app.core.google_oauth import verify_google_id_token
-from app.services.storage import supabase_client
+from app.core.supabase_client import supabase_client
 
 APPLE_JWKS_URL = "https://appleid.apple.com/auth/keys"
 APPLE_ISSUER = "https://appleid.apple.com"
