@@ -12,3 +12,7 @@ class ProfileUpdateIn(BaseModel):
     running_goal: Optional[RunningGoal] = None
     has_injuries: Optional[bool] = None
 
+class ProfileOut(ProfileUpdateIn):
+    class Config:
+        orm_mode = True
+

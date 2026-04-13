@@ -4,12 +4,11 @@ from sqlalchemy.orm import Session
 from app.deps.db import get_db
 from app.deps.auth import get_current_user_id
 from app.services.user import service as user_service
-from app.models.user import User
-from app.schemas.user import  UserUpdateIn
+from app.schemas.user import  UserUpdateIn, UserOut
 
 router = APIRouter()
 
-@router.get("/me", response_model=User, status_code=status.HTTP_200_OK)
+@router.get("/me", response_model=UserOut, status_code=status.HTTP_200_OK)
 def get_me(
     db: Session = Depends(get_db),
     user_id: int = Depends(get_current_user_id)
@@ -24,7 +23,7 @@ def delete_my_account(
     user_service.remove_account(db, user_id=user_id)
     return None
 
-@router.patch("/me", response_model=User, status_code=status.HTTP_200_OK)
+@router.patch("/me", response_model=UserOut, status_code=status.HTTP_200_OK)
 def update_my_account(
     payload: UserUpdateIn,
     db: Session = Depends(get_db),
