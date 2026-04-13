@@ -1,13 +1,13 @@
 import asyncio
 from contextlib import asynccontextmanager
-from fastapi import FastAPI, status
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.db.session import db_ping
 from app.auth import routes as auth_router
 from app.runs import routes as runs_router
 from app.model_results import routes as model_results_router
 from app.analysis import routes as analysis_router
-from app.core.scheduler import run_dispatcher_periodically
+from app.workers.dispatcher import run_dispatcher_periodically
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -15,7 +15,6 @@ async def lifespan(app: FastAPI):
     # Startup
     from app.db.base import Base
     from app.db.session import engine
-    from app.models.user import User  # Import models to register them
 
     # Create tables if they don't exist
     Base.metadata.create_all(bind=engine)

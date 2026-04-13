@@ -4,7 +4,7 @@ from app.core.supabase_client import supabase_client
 from sqlalchemy.orm import Session
 from app.schemas.run import RunCreateIn
 from app.crud import run as crud_run
-from app.services.queue_service import send_message_to_queue
+from app.services.queue.service import send_message_to_queue
 
 
 def get_upload_url(*, user_id: int):

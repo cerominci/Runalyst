@@ -6,7 +6,7 @@ from app.deps.auth import get_current_user
 from app.models.user import User
 from app.models.run import Run
 from .schemas import RunCreateIn, RunOut
-from app.services.queue_service import send_message_to_queue
+from app.services.queue.service import send_message_to_queue
 router = APIRouter(prefix="/runs", tags=["runs"])
 
 
