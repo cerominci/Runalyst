@@ -4,3 +4,6 @@
 # Logs
 *.log
 
+.idea
+runalyst.iml
+vcs.xml
