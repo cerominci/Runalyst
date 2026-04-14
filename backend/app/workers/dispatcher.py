@@ -30,8 +30,10 @@ def process_jobs_from_sqs():
             try:
                 body = json.loads(message['Body'])
                 run_id = body.get("run_id")
+                video_path = body.get("video_path")
 
                 logger.info(f"Worker: Processing run_id {run_id}")
+                logger.info(f"Worker: Processing video_path {video_path}")
 
                 # 1. Update DB status to 'processing'
                 run_obj = crud_run.get_run(db, run_id=run_id)
