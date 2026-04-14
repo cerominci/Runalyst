@@ -1,3 +1,5 @@
+from typing import Optional
+
 from sqlalchemy.orm import Session
 from app.models.user import User
 from sqlalchemy.orm import joinedload
@@ -36,3 +38,23 @@ def get_user_with_profile(db: Session, user_id: int) -> User | None:
         .filter(User.id == user_id)
         .first()
     )
+
+
+def get_by_apple_sub(db: Session, apple_sub: str) -> Optional[User]:
+    return db.query(User).filter(User.apple_sub == apple_sub).first()
+
+
+def create_social_user(db: Session, *, email: str, sub: str, provider: str) -> User:
+    db_obj = User(
+        email=email,
+        auth_provider=provider,
+        hashed_password=None,
+        is_active=True
+    )
+    if provider == "google":
+        db_obj.google_sub = sub
+    elif provider == "apple":
+        db_obj.apple_sub = sub
+
+    db.add(db_obj)
+    return db_obj

@@ -1,5 +1,10 @@
+import os
+
 from sqlalchemy.orm import Session
 from fastapi import HTTPException, status
+
+from app.core.apple_oauth import verify_apple_token
+from app.core.google_oauth import verify_google_id_token
 from app.crud import user as crud_user
 from app.schemas.auth import SignUpIn, Token
 from app.core.security import hash_password, verify_password, create_access_token
@@ -62,3 +67,54 @@ def authenticate_user(db: Session, *, payload: SignUpIn) -> Token:
     access_token = create_access_token(sub=str(user.id))
 
     return Token(access_token=access_token)
+
+
+def process_google_auth(db: Session, token: str) -> str:
+    info = verify_google_id_token(token)
+
+    email = info.get("email")
+    google_sub = info.get("sub")
+
+    # 2. Check if user exists
+    user = crud_user.get_user_by_email(db, email=email)
+
+    if not user:
+        user = crud_user.create_social_user(
+            db,
+            email=email,
+            sub=google_sub,
+            provider="google"
+        )
+        db.commit()
+    elif not user.google_sub:
+        user.google_sub = google_sub
+        db.commit()
+
+    return create_access_token(sub=str(user.id))
+
+
+def process_apple_auth(db: Session, identity_token: str, email_hint: str = None) -> str:
+    audience = os.getenv("APPLE_BUNDLE_ID")
+    try:
+        claims = verify_apple_token(identity_token, audience)
+    except Exception as e:
+        raise HTTPException(status_code=401, detail=f"Apple Auth Failed: {str(e)}")
+
+    apple_sub = claims["sub"]
+    email = email_hint or claims.get("email")
+
+    user = crud_user.get_by_apple_sub(db, apple_sub=apple_sub)
+
+    if not user:
+        if not email:
+            raise HTTPException(status_code=400, detail="Email required for first-time sign-in")
+
+        user = crud_user.get_user_by_email(db, email=email)
+        if user:
+            user.apple_sub = apple_sub
+        else:
+            user = crud_user.create_social_user(db, email=email, sub=apple_sub, provider="apple")
+
+        db.commit()
+
+    return create_access_token(sub=str(user.id))
