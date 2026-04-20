@@ -28,10 +28,12 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(
-    title="User Auth API",
+    title="Runalyst API",
     description="User authentication and authorization API",
     version="1.0.0",
-    lifespan=lifespan
+    lifespan=lifespan,
+    docs_url="/documentation",
+    redoc_url=None
 )
 
 # CORS middleware - configure based on your needs
