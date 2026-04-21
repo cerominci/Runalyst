@@ -66,10 +66,10 @@ def get_run_details(db: Session, *, run_id: int, user_id: int):
     return run
 
 
-def update_run_status(db: Session, *, run_id: int, user_id: int, new_status: str):
+def update_run_status(db: Session, *, run_id: int, new_status: str):
     run = crud_run.get_run(db, run_id=run_id)
 
-    if not run or run.user_id != user_id:
+    if not run:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Run not found or access denied"

@@ -1,10 +1,21 @@
-from fastapi import Depends, HTTPException, status
-from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from fastapi import Depends, HTTPException, Security, status
+from fastapi.security import APIKeyHeader, HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.orm import Session
 
+from app.core.config import settings
 from app.deps.db import get_db
 from app.models.user import User
 from app.core.security import decode_access_token
+
+gpu_api_key_header = APIKeyHeader(name="X-GPU-API-Key", auto_error=False)
+
+
+def verify_gpu_api_key(api_key: str | None = Security(gpu_api_key_header)) -> None:
+    if not api_key or api_key != settings.GPU_API_KEY:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or missing GPU API key"
+        )
 
 # Initialize the bearer scheme
 # auto_error=False allows us to provide a custom error message

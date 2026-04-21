@@ -17,6 +17,9 @@ class Settings(BaseSettings):
     PASSWORD_RESET_TOKEN_EXPIRE_MINUTES: int = 15
     SECRET_KEY: str = "secretkey"
     
+    # GPU Server
+    GPU_API_KEY: str
+
     # App Configuration
     APP_ENV: str = "development"
     DEBUG: bool = False

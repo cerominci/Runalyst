@@ -2,7 +2,7 @@ from app.services.run import service as run_service
 from fastapi import APIRouter, Depends, status
 from sqlalchemy.orm import Session
 from app.deps.db import get_db
-from app.deps.auth import get_current_user_id
+from app.deps.auth import get_current_user_id, verify_gpu_api_key
 from app.schemas.run import RunCreateIn, RunOut
 
 router = APIRouter()
@@ -32,6 +32,6 @@ def update_status(
     run_id: int,
     new_status: str,
     db: Session = Depends(get_db),
-    user_id: int = Depends(get_current_user_id)
+     _: None = Depends(verify_gpu_api_key)
 ):
-    return run_service.update_run_status(db, run_id=run_id, user_id=user_id, new_status=new_status)
+    return run_service.update_run_status(db, run_id=run_id, new_status=new_status)
