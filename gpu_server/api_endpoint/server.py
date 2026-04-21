@@ -14,7 +14,7 @@ SUPABASE_URL = os.environ.get("SUPABASE_URL")
 SUPABASE_KEY = os.environ.get("SUPABASE_SERVICE_ROLE_KEY")
 bucket_name = "user_videos_test"
 
-BACKEND_SAVE_URL = "https://your-api-domain.com/analysis/save-result"
+BACKEND_SAVE_URL = "https://runalyst-backend-2xbs.onrender.com/analysis/save-result"
 
 sqs = boto3.client("sqs", region_name=AWS_REGION)
 supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
