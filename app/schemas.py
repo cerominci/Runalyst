@@ -27,3 +27,20 @@ class ChatResponse(BaseModel):
     question: str
     n_runs_considered: int
     answer: str
+
+
+# --- Session-based chat schemas ---
+
+class SessionCreateResponse(BaseModel):
+    session_id: str
+    message: str
+
+
+class SessionAskRequest(BaseModel):
+    question: str
+
+
+class SessionAskResponse(BaseModel):
+    session_id: str
+    question: str
+    answer: str
