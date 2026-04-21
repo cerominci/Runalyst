@@ -35,6 +35,7 @@ def run_full_pipeline(
     fps: float = 60.0,
     output_dir: str = "pipeline_output",
     verbose: bool = True,
+    save_plots: bool = True,
 ) -> dict:
     """
     Run all gait analysis modules and consolidate results.
@@ -60,9 +61,9 @@ def run_full_pipeline(
     print(f"  Output dir: {output_dir}\n")
 
     # ── MODULE 1: Contact and Overstride (integrated step finding + strike + IC) ───────
-    desc_contact = "Contains frame indices for foot ground contacts and basic initial overstride metrics."
+    desc_contact = "Contains frame indices for foot ground contacts and basic initial overstride metrics. In overstride reult the 4-tuple values are mean_abs(average absolute overstride offset across analyzed steps verdict), result, n_over(how many steps were flagged as overstride) and n_tot(total number of steps analyze)."
     if verbose:
-        print("  [1/8] Running contact_and_overstride (step finding + strike + IC)...")
+        print("  [1/8] Running overstride_metric_1 (step finding + strike + IC)...")
     try:
         gait_result = run_gait_pipeline(
             path=path,
@@ -70,7 +71,7 @@ def run_full_pipeline(
             fps=fps,
             verbose=False,
         )
-        results["modules"]["contact_and_overstride"] = {
+        results["modules"]["overstride_metric_1"] = {
             "description": desc_contact,
             "status": "success",
             "contacts": gait_result.get("contacts", []),
@@ -79,12 +80,12 @@ def run_full_pipeline(
         if verbose:
             print("    ✓ Contact and Overstride complete")
     except Exception as e:
-        results["modules"]["contact_and_overstride"] = {"description": desc_contact, "status": "error", "error": str(e)}
+        results["modules"]["overstride_metric_1"] = {"description": desc_contact, "status": "error", "error": str(e)}
         if verbose:
             print(f"    ✗ Contact and Overstride error: {e}")
 
     # ── MODULE 2: New Strike Analysis (detailed metrics) ─────────────────────
-    desc_strike = "Provides overall classification of the foot strike pattern (e.g., rearfoot, midfoot, forefoot) and prediction confidence."
+    desc_strike = "Provides overall classification of the foot strike pattern (e.g., mid, foot and heel strikes) and prediction confidence."
     if verbose:
         print("  [2/7] Running new_strike_analysis...")
     try:
@@ -107,11 +108,11 @@ def run_full_pipeline(
             print(f"    ✗ New strike analysis error: {e}")
 
     # ── MODULE 3: Pelvis Analysis (cadence & excursion) ──────────────────────
-    desc_pelvis = "Calculates cadence (steps per minute), step durations, and mean stride metrics based on pelvis vertical excursion."
+    desc_pelvis = "step_durations_s gives the time in seconds between consecutive detected steps, while mean_stride_L and mean_stride_R give the average distance from one left or right foot contact to the next same-side contact. In the summary, avg_excursion_L and avg_excursion_R mean the average vertical pelvis movement from a peak to the following trough for left and right steps, and avg_half_cycle_L_s and avg_half_cycle_R_s mean the average time between peaks for left and right steps."
     if verbose:
         print("  [3/7] Running pelvis_analysis (cadence & excursion)...")
     try:
-        pelvis_plot_path = os.path.join(output_dir, f"{label}_pelvis_analysis.png")
+        pelvis_plot_path = os.path.join(output_dir, f"{label}_pelvis_analysis.png") if save_plots else None
         pelvis_result = cadence_and_step_vertical_comparison(
             path=path,
             label=label,
@@ -124,7 +125,7 @@ def run_full_pipeline(
         results["modules"]["pelvis_analysis"] = {
             "description": desc_pelvis,
             "cadence_steps_per_min": pelvis_result.get("cadence_steps_per_min", ""),
-            "steps_duration_s": pelvis_result.get("steps_duration_s", ""),
+            "step_durations_s": pelvis_result.get("step_durations_s", ""),
             "mean_stride_L": pelvis_result.get("mean_stride_L", ""),
             "mean_stride_R": pelvis_result.get("mean_stride_R", ""),
             "summary": pelvis_result.get("summary", [])
@@ -141,16 +142,16 @@ def run_full_pipeline(
     if verbose:
         print("  [4/7] Running swing_stance_analysis (flight metrics)...")
     try:
-        swing_plot_path = os.path.join(output_dir, f"{label}_swing_stance.png")
+        swing_plot_path = os.path.join(output_dir, f"{label}_swing_stance.png") if save_plots else None
         swing_result = analyze_swing_stance(path, save_path=swing_plot_path)
         
         if "flight_metrics" in swing_result:
             swing_summary = {
                 "description": desc_swing,
-                "flight_metrics": swing_result.get("flight_metrics", {}),
-                "left_foot_cycles": swing_result.get("left_foot_cycles", []) if hasattr(swing_result, "left_foot_cycles") else None,
-                "right_foot_cycles": swing_result.get("right_foot_cycles", []) if hasattr(swing_result, "right_foot_cycles") else None,
-                "plot_path": swing_plot_path,
+                "overall_averages": swing_result.get("flight_metrics", {}).get("overall_averages", {}),
+                #"left_foot_cycles": swing_result.get("left_foot_cycles", []) if hasattr(swing_result, "left_foot_cycles") else None,
+                #"right_foot_cycles": swing_result.get("right_foot_cycles", []) if hasattr(swing_result, "right_foot_cycles") else None,
+                #"plot_path": swing_plot_path,
             }
             results["modules"]["swing_stance_analysis"] = swing_summary
         else:
@@ -203,7 +204,7 @@ def run_full_pipeline(
     if verbose:
         print("  [6/7] Running knee_flexion_analysis...")
     try:
-        knee_plot_path = os.path.join(output_dir, f"{label}_knee_flexion.png")
+        knee_plot_path = os.path.join(output_dir, f"{label}_knee_flexion.png") if save_plots else None
         knee_result = analyze_knee_flexion(path, save_path=knee_plot_path)
         knee_summary = {
             "description": desc_knee,
@@ -221,27 +222,27 @@ def run_full_pipeline(
     # ── MODULE 7: Alpers Overstride Analysis ────────────────────────────────────
     desc_alpers = "Calculates the precise overstride index in degrees, integrating the alpha angle(angle between ground normal and leg, leg is pelvis to foot line) and forward lean to assess if the foot lands too far ahead of the center of mass."
     if verbose:
-        print("  [7/7] Running alpers_overstride_analysis...")
+        print("  [7/7] Running overstride_metric_2_analysis...")
     try:
         frames = gait_result.get("frames", [])
         contacts = gait_result.get("contacts", [])
         if frames and contacts:
             alpers_result = calculate_overstride_at_contact(frames, contacts, k=0.7)
             alpers_result["description"] = desc_alpers
-            results["modules"]["alpers_overstride"] = alpers_result
+            results["modules"]["overstride_metric_2"] = alpers_result
             if verbose:
                 print("    ✓ Alpers overstride analysis complete")
         else:
-            results["modules"]["alpers_overstride"] = {
+            results["modules"]["overstride_metric_2"] = {
                 "description": desc_alpers, 
                 "status": "error", 
-                "error": "No frames or contacts from contact_and_overstride"
+                "error": "No frames or contacts from overstride_metric_1"
             }
             if verbose:
-                print("    ✗ Alpers overstride analysis error: No frames or contacts from contact_and_overstride")
+                print("    ✗ Alpers overstride analysis error: No frames or contacts from overstride_metric_1")
     
     except Exception as e:
-        results["modules"]["alpers_overstride"] = {"description": desc_alpers, "status": "error", "error": str(e)}
+        results["modules"]["overstride_metric_2"] = {"description": desc_alpers, "status": "error", "error": str(e)}
         if verbose:
             print(f"    ✗ Alpers overstride analysis error: {e}")
 
@@ -252,7 +253,7 @@ def run_full_pipeline(
         print("─" * 90)
 
         # Contact and Overstride Summary
-        gp = results["modules"].get("contact_and_overstride", {})
+        gp = results["modules"].get("overstride_metric_1", {})
         if gp.get("status") == "success":
             print(f"\n  ▸ CONTACT AND OVERSTRIDE")
             contacts = gp.get('contacts', [])
@@ -300,7 +301,7 @@ def run_full_pipeline(
             print(f"    Left foot cycles:  {len(l_events.get('foot_strike', []))} detected")
 
         # Alpers Overstride Summary
-        ao = results["modules"].get("alpers_overstride", {})
+        ao = results["modules"].get("overstride_metric_2", {})
         if ao.get("status") != "error":
             print(f"\n  ▸ ALPERS OVERSTRIDE")
             mean_osi = ao.get('mean_overstride_index_deg')
@@ -351,9 +352,10 @@ def main():
     )
     parser.add_argument("jsonl_file", help="Path to JSONL file with gait data")
     parser.add_argument("--label", default="Runner", help="Subject label (default: Runner)")
-    parser.add_argument("--fps", type=float, default=60.0, help="Frames per second (default: 64)")
+    parser.add_argument("--fps", type=float, default=60.0, help="Frames per second (default: 60)")
     parser.add_argument("--output-dir", default="pipeline_output", help="Output directory")
     parser.add_argument("--quiet", action="store_true", help="Suppress verbose output")
+    parser.add_argument("--no-plots", action="store_true", help="Do not save PNG plots")
 
     args = parser.parse_args()
 
@@ -363,6 +365,7 @@ def main():
         fps=args.fps,
         output_dir=args.output_dir,
         verbose=not args.quiet,
+        save_plots=not args.no_plots,
     )
 
     return results
