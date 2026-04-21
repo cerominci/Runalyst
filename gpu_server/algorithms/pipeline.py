@@ -73,8 +73,8 @@ def run_full_pipeline(
         )
         results["modules"]["overstride_metric_1"] = {
             "description": desc_contact,
-            "status": "success",
-            "contacts": gait_result.get("contacts", []),
+            #"status": "success",
+            #"contacts": gait_result.get("contacts", []),
             "overstride": gait_result.get("overstride", {}),
         }
         if verbose:

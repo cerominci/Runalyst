@@ -231,14 +231,14 @@ def cadence_and_step_vertical_comparison(path: str, label: str, smooth_window: i
         'rows': rows,
         'excursions_L': [float(x) for x in excursions_L],
         'excursions_R': [float(x) for x in excursions_R],
-        'mean_stride_L': mean_stride_L,
-        'mean_stride_R': mean_stride_R,
+        'mean_stride_L': mean_stride_L/10,
+        'mean_stride_R': mean_stride_R/10,
         'summary': {
-            'avg_excursion_L': exc_L,
-            'avg_excursion_R': exc_R,
+            'avg_excursion_L': exc_L/10,
+            'avg_excursion_R': exc_R/10,
             'avg_half_cycle_L_s': hc_L,
             'avg_half_cycle_R_s': hc_R,
-            'avg_excursion_all': float(np.mean(all_exc)) if all_exc else None,
+            'avg_excursion_all': float(np.mean(all_exc))/10 if all_exc else None,
         },
     }
 
