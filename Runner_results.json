@@ -1,0 +1,443 @@
+{
+  "metadata": {
+    "input_file": "nlf_outputs/output_proper_stride_baris.jsonl",
+    "label": "Runner",
+    "fps": 60.0,
+    "output_directory": "pipeline_output"
+  },
+  "modules": {
+    "contact_and_overstride": {
+      "status": "success",
+      "peaks": [
+        20,
+        43,
+        66,
+        89,
+        112,
+        134,
+        158
+      ],
+      "foot_labels": [
+        "L",
+        "R",
+        "L",
+        "R",
+        "L",
+        "R",
+        "L"
+      ],
+      "strike_type": "HEEL",
+      "confidence": "high",
+      "contacts": [
+        {
+          "frame": 10,
+          "side": "L",
+          "midstance_frame": 20,
+          "frames_to_midstance": 10,
+          "contact_joint": "ankle",
+          "fallback": true
+        },
+        {
+          "frame": 33,
+          "side": "R",
+          "midstance_frame": 43,
+          "frames_to_midstance": 10,
+          "contact_joint": "ankle",
+          "fallback": true
+        },
+        {
+          "frame": 56,
+          "side": "L",
+          "midstance_frame": 66,
+          "frames_to_midstance": 10,
+          "contact_joint": "ankle",
+          "fallback": true
+        },
+        {
+          "frame": 79,
+          "side": "R",
+          "midstance_frame": 89,
+          "frames_to_midstance": 10,
+          "contact_joint": "ankle",
+          "fallback": true
+        },
+        {
+          "frame": 102,
+          "side": "L",
+          "midstance_frame": 112,
+          "frames_to_midstance": 10,
+          "contact_joint": "ankle",
+          "fallback": true
+        },
+        {
+          "frame": 125,
+          "side": "R",
+          "midstance_frame": 134,
+          "frames_to_midstance": 9,
+          "contact_joint": "ankle",
+          "fallback": false
+        },
+        {
+          "frame": 150,
+          "side": "L",
+          "midstance_frame": 158,
+          "frames_to_midstance": 8,
+          "contact_joint": "ankle",
+          "fallback": false
+        }
+      ],
+      "overstride": [
+        330.6,
+        "yes",
+        7,
+        7
+      ]
+    },
+    "strike_analysis_new": {
+      "overall": "HEEL",
+      "confidence": "high",
+      "metrics_agree": true,
+      "mn_max": 0.00080141597904762,
+      "mn_amax": 0.13296084048283682,
+      "primary": "HEEL",
+      "validation": "HEEL"
+    },
+    "pelvis_analysis": {
+      "path": "nlf_outputs/output_proper_stride_baris.jsonl",
+      "label": "Runner",
+      "fps": 60.0,
+      "n_frames": 161,
+      "duration_s": 2.6666666666666665,
+      "smooth_window": 11,
+      "prominence": 15.0,
+      "min_distance": 10,
+      "peaks": [
+        20,
+        43,
+        66,
+        89,
+        112,
+        134,
+        158
+      ],
+      "troughs": [
+        10,
+        31,
+        54,
+        76,
+        101,
+        123,
+        146
+      ],
+      "foot_labels": [
+        "L",
+        "R",
+        "L",
+        "R",
+        "L",
+        "R",
+        "L"
+      ],
+      "cadence_steps_per_min": 156.52173913043478,
+      "step_durations_s": [
+        0.38333333333333336,
+        0.3833333333333334,
+        0.3833333333333333,
+        0.3833333333333333,
+        0.3666666666666667,
+        0.3999999999999999
+      ],
+      "rows": [
+        {
+          "cycle": 1,
+          "foot": "L",
+          "peak_frame": 20,
+          "peak_time_s": 0.3333333333333333,
+          "next_peak_time_s": 0.7166666666666667,
+          "half_cycle_s": 0.38333333333333336,
+          "following_trough_frame": 31,
+          "y_excursion": 79.58734130859375
+        },
+        {
+          "cycle": 2,
+          "foot": "R",
+          "peak_frame": 43,
+          "peak_time_s": 0.7166666666666667,
+          "next_peak_time_s": 1.1,
+          "half_cycle_s": 0.3833333333333334,
+          "following_trough_frame": 54,
+          "y_excursion": 82.94049072265625
+        },
+        {
+          "cycle": 3,
+          "foot": "L",
+          "peak_frame": 66,
+          "peak_time_s": 1.1,
+          "next_peak_time_s": 1.4833333333333334,
+          "half_cycle_s": 0.3833333333333333,
+          "following_trough_frame": 76,
+          "y_excursion": 99.6475830078125
+        },
+        {
+          "cycle": 4,
+          "foot": "R",
+          "peak_frame": 89,
+          "peak_time_s": 1.4833333333333334,
+          "next_peak_time_s": 1.8666666666666667,
+          "half_cycle_s": 0.3833333333333333,
+          "following_trough_frame": 101,
+          "y_excursion": 76.586181640625
+        },
+        {
+          "cycle": 5,
+          "foot": "L",
+          "peak_frame": 112,
+          "peak_time_s": 1.8666666666666667,
+          "next_peak_time_s": 2.2333333333333334,
+          "half_cycle_s": 0.3666666666666667,
+          "following_trough_frame": 123,
+          "y_excursion": 64.150390625
+        },
+        {
+          "cycle": 6,
+          "foot": "R",
+          "peak_frame": 134,
+          "peak_time_s": 2.2333333333333334,
+          "next_peak_time_s": 2.6333333333333333,
+          "half_cycle_s": 0.3999999999999999,
+          "following_trough_frame": 146,
+          "y_excursion": 87.21148681640625
+        },
+        {
+          "cycle": 7,
+          "foot": "L",
+          "peak_frame": 158,
+          "peak_time_s": 2.6333333333333333,
+          "next_peak_time_s": null,
+          "half_cycle_s": null,
+          "following_trough_frame": null,
+          "y_excursion": null
+        }
+      ],
+      "excursions_L": [
+        79.58734130859375,
+        99.6475830078125,
+        64.150390625
+      ],
+      "excursions_R": [
+        82.94049072265625,
+        76.586181640625,
+        87.21148681640625
+      ],
+      "mean_stride_L": 2647.8766662835537,
+      "mean_stride_R": 2629.075583611999,
+      "summary": {
+        "avg_excursion_L": 81.12843831380208,
+        "avg_excursion_R": 82.24605305989583,
+        "avg_half_cycle_L_s": 0.37777777777777777,
+        "avg_half_cycle_R_s": 0.38888888888888884,
+        "avg_excursion_all": 81.68724568684895
+      },
+      "plot_path": "pipeline_output/Runner_pelvis_analysis.png"
+    },
+    "swing_stance_analysis": {
+      "flight_metrics": {
+        "left_foot_cycles": [
+          {
+            "start_time": 1.172377192982456,
+            "end_time": 2.0180263157894736,
+            "cycle_frames": 45,
+            "left_flight_pct": 71.11111111111111,
+            "right_flight_pct": 62.22222222222222,
+            "double_flight_pct": 33.33333333333333
+          }
+        ],
+        "right_foot_cycles": [
+          {
+            "start_time": 0.7303333333333333,
+            "end_time": 1.5567631578947367,
+            "cycle_frames": 44,
+            "left_flight_pct": 70.45454545454545,
+            "right_flight_pct": 75.0,
+            "double_flight_pct": 45.45454545454545
+          },
+          {
+            "start_time": 1.5759824561403508,
+            "end_time": 2.4792894736842106,
+            "cycle_frames": 48,
+            "left_flight_pct": 72.91666666666666,
+            "right_flight_pct": 64.58333333333334,
+            "double_flight_pct": 37.5
+          }
+        ],
+        "double_flight_cycles": [],
+        "left_cycle_averages": {
+          "avg_left_flight": 71.11111111111111,
+          "avg_right_flight": 62.22222222222222,
+          "avg_double_flight": 33.33333333333333
+        },
+        "right_cycle_averages": {
+          "avg_left_flight": 71.68560606060606,
+          "avg_right_flight": 69.79166666666667,
+          "avg_double_flight": 41.47727272727273
+        },
+        "overall_averages": {
+          "avg_left_flight": 71.49410774410775,
+          "avg_right_flight": 67.26851851851852,
+          "avg_double_flight": 38.76262626262626
+        }
+      },
+      "left_foot_cycles": null,
+      "right_foot_cycles": null,
+      "plot_path": "pipeline_output/Runner_swing_stance.png"
+    },
+    "trunk_lean_analysis": {
+      "mean_global": 5.072960905833846,
+      "std_global": 1.5694090615228466,
+      "min_global": 2.2411844307010265,
+      "max_global": 9.365359077342196,
+      "mean_lower": 5.137950729620779,
+      "std_lower": 2.0959360906842437,
+      "min_lower": 1.2812946603034607,
+      "max_lower": 9.659737972492458,
+      "mean_upper": 5.013316105785825,
+      "std_upper": 1.5600195424861192,
+      "min_upper": 1.6896827640478749,
+      "max_upper": 9.109915807345416
+    },
+    "knee_flexion_analysis": {
+      "plot_path": "pipeline_output/Runner_knee_flexion.png",
+      "left": {
+        "foot_strike": {
+          "count": 4,
+          "mean_deg": 154.19393463881127,
+          "std_deg": 2.1577423742838944,
+          "min_deg": 152.05891374240372,
+          "max_deg": 157.40803726433415
+        },
+        "mid_stance": {
+          "count": 4,
+          "mean_deg": 133.1378685105671,
+          "std_deg": 0.6876835118270117,
+          "min_deg": 132.33177390362846,
+          "max_deg": 134.22721990369433
+        },
+        "toe_off": {
+          "count": 4,
+          "mean_deg": 148.28601779181528,
+          "std_deg": 8.213254183170653,
+          "min_deg": 134.57141871650927,
+          "max_deg": 154.85407741242042
+        },
+        "mid_swing": {
+          "count": 4,
+          "mean_deg": 87.29318290095065,
+          "std_deg": 4.56786527169809,
+          "min_deg": 80.0801074295314,
+          "max_deg": 92.7198591814086
+        }
+      },
+      "right": {
+        "foot_strike": {
+          "count": 4,
+          "mean_deg": 150.31399283507628,
+          "std_deg": 7.769112248513586,
+          "min_deg": 138.87368434300788,
+          "max_deg": 160.7596531109235
+        },
+        "mid_stance": {
+          "count": 4,
+          "mean_deg": 132.58155060596397,
+          "std_deg": 3.736574791461644,
+          "min_deg": 129.17723805881997,
+          "max_deg": 138.87368434300788
+        },
+        "toe_off": {
+          "count": 4,
+          "mean_deg": 145.98478655604742,
+          "std_deg": 3.9187662422327194,
+          "min_deg": 142.60340458051837,
+          "max_deg": 152.63646041049253
+        },
+        "mid_swing": {
+          "count": 4,
+          "mean_deg": 89.22617531091343,
+          "std_deg": 5.573228334630367,
+          "min_deg": 80.74938579859678,
+          "max_deg": 95.84892746454234
+        }
+      }
+    },
+    "alpers_overstride": {
+      "per_contact": [
+        {
+          "frame": 10,
+          "side": "L",
+          "alpha_deg": 21.492714406926925,
+          "lean_forward_deg": 8.419542816986063,
+          "overstride_index_deg": 15.599034435036682,
+          "x": 322.5726318359375,
+          "y": 819.2037963867188
+        },
+        {
+          "frame": 33,
+          "side": "R",
+          "alpha_deg": 23.96981581547159,
+          "lean_forward_deg": 11.068508713308205,
+          "overstride_index_deg": 16.221859716155848,
+          "x": 367.47442626953125,
+          "y": 826.5326538085938
+        },
+        {
+          "frame": 56,
+          "side": "L",
+          "alpha_deg": 22.23271875840435,
+          "lean_forward_deg": 7.789134076523301,
+          "overstride_index_deg": 16.78032490483804,
+          "x": 336.5518798828125,
+          "y": 823.3508911132812
+        },
+        {
+          "frame": 79,
+          "side": "R",
+          "alpha_deg": 23.635978837456612,
+          "lean_forward_deg": 10.894716292332616,
+          "overstride_index_deg": 16.009677432823782,
+          "x": 363.4437561035156,
+          "y": 830.468017578125
+        },
+        {
+          "frame": 102,
+          "side": "L",
+          "alpha_deg": 21.615609281276853,
+          "lean_forward_deg": 10.02292706239484,
+          "overstride_index_deg": 14.599560337600465,
+          "x": 326.0833740234375,
+          "y": 822.9375
+        },
+        {
+          "frame": 125,
+          "side": "R",
+          "alpha_deg": 23.35233005478462,
+          "lean_forward_deg": 10.032788381244,
+          "overstride_index_deg": 16.32937818791382,
+          "x": 353.1104736328125,
+          "y": 817.8563842773438
+        },
+        {
+          "frame": 150,
+          "side": "L",
+          "alpha_deg": 18.126882494685265,
+          "lean_forward_deg": 8.610866855797498,
+          "overstride_index_deg": 12.099275695627018,
+          "x": 274.391357421875,
+          "y": 838.1694946289062
+        }
+      ],
+      "mean_alpha_deg": 22.060864235572318,
+      "mean_lean_forward_deg": 9.548354885512362,
+      "mean_overstride_index_deg": 15.377015815713664,
+      "comment": "Belirgin overstride e\u011filimi."
+    }
+  }
+}
