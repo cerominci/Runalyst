@@ -5,6 +5,7 @@ import uuid
 import boto3
 import requests
 from supabase import create_client
+from gpu_server.algorithms.pipeline import run_full_pipeline
 
 SQS_QUEUE_URL = os.environ.get("SQS_QUEUE_URL")
 AWS_REGION = os.environ.get("AWS_REGION", "us-east-1")
@@ -19,22 +20,17 @@ sqs = boto3.client("sqs", region_name=AWS_REGION)
 supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 
-def run_placeholder_ai(video_path: str):
-    print(f" AI: Analyzing video at {video_path}...")
-    time.sleep(3)
+def placeholder_video_to_nlf(video_path: str):
+    mock_nlf_path = "mock_path.jsonl"
+    return mock_nlf_path
+
+
+def run_analyze_pipeline(nlf_output_path: str):
+    print(f" AI: Analyzing nlf at {nlf_output_path}...")
+    results = run_full_pipeline(path=nlf_output_path, label="Runner", fps=60, output_dir="pipeline_output", verbose=True)
 
     # Must match AnalysisCreateIn schema from backend
-    return {
-        "avg_stride_length": 1.25,
-        "avg_gct": 0.240,
-        "avg_speed": 13.2,
-        "avg_cadence": 172.0,
-        "details": {
-            "processed_at": time.ctime(),
-            "gpu_model": "Local Demo Worker",
-            "status": "success"
-        }
-    }
+    return results
 
 
 def main():
@@ -67,7 +63,8 @@ def main():
                     data = supabase.storage.from_(bucket_name).download(video_path)
                     f.write(data)
 
-                analysis_results = run_placeholder_ai(local_filename)
+                nlf_output_path = placeholder_video_to_nlf(video_path)
+                analysis_results = run_analyze_pipeline(nlf_output_path)
 
                 analysis_results["run_id"] = run_id
 
