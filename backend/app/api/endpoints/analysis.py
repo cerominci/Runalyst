@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 from typing import List
 
 from app.deps.db import get_db
-from app.deps.auth import get_current_user_id
+from app.deps.auth import get_current_user_id, verify_gpu_api_key
 from app.schemas.analysis import AnalysisCreateIn, AnalysisOut
 from app.services.analysis import service as analysis_service
 
@@ -12,7 +12,8 @@ router = APIRouter()
 @router.post("/save-result", response_model=AnalysisOut, status_code=status.HTTP_201_CREATED)
 def save_result(
     payload: AnalysisCreateIn,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    _: None = Depends(verify_gpu_api_key)
 ):
     return analysis_service.create_analysis_result(db, payload=payload)
 
