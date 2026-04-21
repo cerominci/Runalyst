@@ -7,3 +7,8 @@
 .idea
 runalyst.iml
 vcs.xml
+
+nlf_outputs
+pipeline_output
+results
+__pycache__
