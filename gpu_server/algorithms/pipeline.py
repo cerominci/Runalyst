@@ -328,8 +328,7 @@ def run_full_pipeline(
     if verbose:
         print(f"  Results saved to: {json_output_path}\n")
 
-    results["json_output_path"] = json_output_path
-    return results
+    return json_results
 
 
 def _make_serializable(obj):

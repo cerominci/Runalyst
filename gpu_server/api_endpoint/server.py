@@ -6,6 +6,7 @@ import boto3
 import requests
 from supabase import create_client
 from gpu_server.algorithms.pipeline import run_full_pipeline
+from process_video import process_video
 
 SQS_QUEUE_URL = os.environ.get("SQS_QUEUE_URL")
 AWS_REGION = os.environ.get("AWS_REGION", "us-east-1")
@@ -25,12 +26,12 @@ def placeholder_video_to_nlf(video_path: str):
     return mock_nlf_path
 
 
-def run_analyze_pipeline(nlf_output_path: str):
-    print(f" AI: Analyzing nlf at {nlf_output_path}...")
-    results = run_full_pipeline(path=nlf_output_path, label="Runner", fps=60, output_dir="pipeline_output", verbose=True)
+# def run_analyze_pipeline(nlf_output_path: str):
+#     print(f" AI: Analyzing nlf at {nlf_output_path}...")
+#     results = run_full_pipeline(path=nlf_output_path, label="Runner", fps=, output_dir="pipeline_output", verbose=True)
 
-    # Must match AnalysisCreateIn schema from backend
-    return results
+#     # Must match AnalysisCreateIn schema from backend
+#     return results
 
 
 def main():
@@ -56,15 +57,18 @@ def main():
 
                 print(f" Received Job: Run ID {run_id}")
 
-                local_filename = f"job_{run_id}_{uuid.uuid4().hex[:8]}.mp4"
+                local_filename = os.path.join(os.getcwd(), f"job_{run_id}_{uuid.uuid4().hex[:8]}.mp4")
                 print(f"Downloading {video_path}...")
 
                 with open(local_filename, "wb") as f:
                     data = supabase.storage.from_(bucket_name).download(video_path)
                     f.write(data)
 
-                nlf_output_path = placeholder_video_to_nlf(video_path)
-                analysis_results = run_analyze_pipeline(nlf_output_path)
+                if not os.path.exists(local_filename):
+                    raise FileNotFoundError(f"Failed to download video to {local_filename}")
+
+                nlf_output_path,fps_of_video = process_video(local_filename)
+                analysis_results = run_full_pipeline(path=nlf_output_path, label="Runner", fps=fps_of_video, output_dir="pipeline_output", verbose=True, save_plots=False)
 
                 analysis_results["run_id"] = run_id
 
