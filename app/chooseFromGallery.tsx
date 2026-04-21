@@ -8,7 +8,7 @@ import ScreenContainer from "@/components/atomic/Layout/ScreenContainer";
 import ScrollScreen from "@/components/atomic/Layout/ScrollScreen";
 import BodyText from "@/components/atomic/Typography/BodyText";
 import Subtitle from "@/components/atomic/Typography/Subtitle";
-import { getToken } from "@/utils/devAuth";
+import { generateUploadUrl, getToken } from "@/utils/devAuth";
 import * as ImagePicker from "expo-image-picker";
 import { useRouter } from "expo-router";
 import { VideoView, useVideoPlayer } from "expo-video";
@@ -103,33 +103,7 @@ export default function GalleryPressScreen() {
   const API_BASE = "https://runalyst-backend.onrender.com";
   const GENERATE_URL_ENDPOINT = `${API_BASE}/auth/generate-upload-url`;
 
-  const fetchUploadUrlAsync = async (name?: string, type?: string): Promise<string> => {
-    const TOKEN = await getToken();
 
-    const res = await fetch(GENERATE_URL_ENDPOINT, {
-      method: "POST",
-      headers: {
-        Accept: "application/json",
-        Authorization: "Bearer " + TOKEN,
-      },
-      // If backend expects metadata, you can add:
-      // body: JSON.stringify({ name, type }),
-    });
-
-    if (!res.ok) {
-      const text = await res.text().catch(() => "");
-      throw new Error(`generate-url failed (${res.status}): ${text}`);
-    }
-
-    const json = await res.json().catch(() => ({}));
-    const url: unknown = (json as any)?.upload_url;
-
-    if (typeof url !== "string" || url.length === 0) {
-      throw new Error('Missing "upload_url" in response');
-    }
-
-    return url;
-  };
 
   const pickVideoAsync = async () => {
     setError(null);
@@ -181,13 +155,13 @@ export default function GalleryPressScreen() {
     setSuccess(null);
 
     try {
-      const uploadUrl = await fetchUploadUrlAsync(fileInfo.name, fileInfo.type);
+      const { upload_url, path } = await generateUploadUrl();
 
       // ✅ Web: blob + PUT
       if (Platform.OS === "web") {
         const videoBlob = await (await fetch(fileInfo.uri)).blob();
 
-        const res = await fetch(uploadUrl, {
+        const res = await fetch(upload_url, {
           method: "PUT",
           headers: { "Content-Type": fileInfo.type },
           body: videoBlob,
@@ -207,7 +181,7 @@ export default function GalleryPressScreen() {
       // @ts-ignore
       form.append("video", { uri: fileInfo.uri, name: fileInfo.name, type: fileInfo.type });
 
-      const res = await fetch(uploadUrl, {
+      const res = await fetch(upload_url, {
         method: "PUT",
         headers: { Authorization: "Bearer " + TOKEN },
         body: form,

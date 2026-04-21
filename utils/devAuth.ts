@@ -3,54 +3,54 @@
  * Handles login, register, and token management for video upload
  */
 
-import * as SecureStore from 'expo-secure-store';
-import { Platform } from 'react-native';
+import * as SecureStore from "expo-secure-store";
+import { Platform } from "react-native";
 
 // TODO: Replace with your actual backend API base URL
-const API_BASE_URL = 'https://runalyst-backend.onrender.com';
+const API_BASE_URL = "https://runalyst-backend-2xbs.onrender.com";
 
 // Token storage key
-const TOKEN_STORAGE_KEY = 'runalyst_auth_token';
+const TOKEN_STORAGE_KEY = "runalyst_auth_token";
 
 export type Run = {
-    id: number;
-    title: string | null;
-    video_path: string;
-    analysis_results: Record<string, any> | null;
-    created_at: string; // ISO datetime string
-    user_id: number;
+  id: number;
+  title: string | null;
+  video_path: string;
+  analysis_results: Record<string, any> | null;
+  created_at: string; // ISO datetime string
+  user_id: number;
 };
 
 /**
  * Platform-specific token storage helpers
  */
 async function storeTokenPlatform(token: string): Promise<void> {
-  if (Platform.OS === 'web') {
+  if (Platform.OS === "web") {
     // Use localStorage for web
     try {
       localStorage.setItem(TOKEN_STORAGE_KEY, token);
     } catch (error) {
-      console.error('Error storing token in localStorage:', error);
-      throw new Error('Failed to store authentication token');
+      console.error("Error storing token in localStorage:", error);
+      throw new Error("Failed to store authentication token");
     }
   } else {
     // Use SecureStore for native platforms
     try {
       await SecureStore.setItemAsync(TOKEN_STORAGE_KEY, token);
     } catch (error) {
-      console.error('Error storing token in SecureStore:', error);
-      throw new Error('Failed to store authentication token');
+      console.error("Error storing token in SecureStore:", error);
+      throw new Error("Failed to store authentication token");
     }
   }
 }
 
 async function getTokenPlatform(): Promise<string | null> {
-  if (Platform.OS === 'web') {
+  if (Platform.OS === "web") {
     // Use localStorage for web
     try {
       return localStorage.getItem(TOKEN_STORAGE_KEY);
     } catch (error) {
-      console.error('Error getting token from localStorage:', error);
+      console.error("Error getting token from localStorage:", error);
       return null;
     }
   } else {
@@ -58,26 +58,26 @@ async function getTokenPlatform(): Promise<string | null> {
     try {
       return await SecureStore.getItemAsync(TOKEN_STORAGE_KEY);
     } catch (error) {
-      console.error('Error getting token from SecureStore:', error);
+      console.error("Error getting token from SecureStore:", error);
       return null;
     }
   }
 }
 
 async function deleteTokenPlatform(): Promise<void> {
-  if (Platform.OS === 'web') {
+  if (Platform.OS === "web") {
     // Use localStorage for web
     try {
       localStorage.removeItem(TOKEN_STORAGE_KEY);
     } catch (error) {
-      console.error('Error removing token from localStorage:', error);
+      console.error("Error removing token from localStorage:", error);
     }
   } else {
     // Use SecureStore for native platforms
     try {
       await SecureStore.deleteItemAsync(TOKEN_STORAGE_KEY);
     } catch (error) {
-      console.error('Error removing token from SecureStore:', error);
+      console.error("Error removing token from SecureStore:", error);
     }
   }
 }
@@ -90,13 +90,18 @@ async function deleteTokenPlatform(): Promise<void> {
  */
 export async function register(
   email: string,
-  password: string
-): Promise<{ id: number; email: string; is_active: boolean; created_at: string }> {
+  password: string,
+): Promise<{
+  id: number;
+  email: string;
+  is_active: boolean;
+  created_at: string;
+}> {
   try {
     const response = await fetch(`${API_BASE_URL}/auth/signup`, {
-      method: 'POST',
+      method: "POST",
       headers: {
-        'Content-Type': 'application/json',
+        "Content-Type": "application/json",
       },
       body: JSON.stringify({
         email,
@@ -105,15 +110,17 @@ export async function register(
     });
 
     if (!response.ok) {
-      let errorMessage = 'Registration failed';
+      let errorMessage = "Registration failed";
       try {
         const errorData = await response.json();
         // Handle different error response formats
         if (errorData.detail) {
           // FastAPI style: { detail: "error message" } or { detail: [{ msg: "...", type: "..." }] }
           if (Array.isArray(errorData.detail)) {
-            errorMessage = errorData.detail.map((err: any) => err.msg || err.message || JSON.stringify(err)).join(', ');
-          } else if (typeof errorData.detail === 'string') {
+            errorMessage = errorData.detail
+              .map((err: any) => err.msg || err.message || JSON.stringify(err))
+              .join(", ");
+          } else if (typeof errorData.detail === "string") {
             errorMessage = errorData.detail;
           } else {
             errorMessage = JSON.stringify(errorData.detail);
@@ -122,7 +129,7 @@ export async function register(
           errorMessage = errorData.message;
         } else if (errorData.error) {
           errorMessage = errorData.error;
-        } else if (typeof errorData === 'string') {
+        } else if (typeof errorData === "string") {
           errorMessage = errorData;
         } else {
           errorMessage = JSON.stringify(errorData);
@@ -135,12 +142,12 @@ export async function register(
     }
 
     const data = await response.json();
-    
+
     // Signup response: { id, email, is_active, created_at }
     // Note: No token in signup response - user must login after signup
     return data;
   } catch (error: any) {
-    console.error('Registration error:', error);
+    console.error("Registration error:", error);
     throw error;
   }
 }
@@ -153,13 +160,15 @@ export async function register(
  */
 export async function login(
   email: string,
-  password: string
+  password: string,
 ): Promise<{ access_token: string; token_type: string }> {
   try {
+    console.log("Attempting login with email:", email);
+    console.log("API base URL:", API_BASE_URL);
     const response = await fetch(`${API_BASE_URL}/auth/login`, {
-      method: 'POST',
+      method: "POST",
       headers: {
-        'Content-Type': 'application/json',
+        "Content-Type": "application/json",
       },
       body: JSON.stringify({
         email,
@@ -168,14 +177,16 @@ export async function login(
     });
 
     if (!response.ok) {
-      let errorMessage = 'Login failed';
+      let errorMessage = "Login failed";
       try {
         const errorData = await response.json();
         // Handle different error response formats
         if (errorData.detail) {
           if (Array.isArray(errorData.detail)) {
-            errorMessage = errorData.detail.map((err: any) => err.msg || err.message || JSON.stringify(err)).join(', ');
-          } else if (typeof errorData.detail === 'string') {
+            errorMessage = errorData.detail
+              .map((err: any) => err.msg || err.message || JSON.stringify(err))
+              .join(", ");
+          } else if (typeof errorData.detail === "string") {
             errorMessage = errorData.detail;
           } else {
             errorMessage = JSON.stringify(errorData.detail);
@@ -184,7 +195,7 @@ export async function login(
           errorMessage = errorData.message;
         } else if (errorData.error) {
           errorMessage = errorData.error;
-        } else if (typeof errorData === 'string') {
+        } else if (typeof errorData === "string") {
           errorMessage = errorData;
         } else {
           errorMessage = JSON.stringify(errorData);
@@ -196,18 +207,21 @@ export async function login(
     }
 
     const data = await response.json();
-    
+
     // Login response: { access_token, token_type: "bearer" }
     if (!data.access_token) {
-      throw new Error('No access_token received from server');
+      throw new Error("No access_token received from server");
     }
 
     // Store token
     await storeToken(data.access_token);
-    
-    return { access_token: data.access_token, token_type: data.token_type || 'bearer' };
+
+    return {
+      access_token: data.access_token,
+      token_type: data.token_type || "bearer",
+    };
   } catch (error: any) {
-    console.error('Login error:', error);
+    console.error("Login error:", error);
     throw error;
   }
 }
@@ -248,18 +262,23 @@ export async function isAuthenticated(): Promise<boolean> {
  * Get current user information
  * @returns Promise with user data
  */
-export async function getCurrentUser(): Promise<{ id: number; email: string; is_active: boolean; created_at: string }> {
+export async function getCurrentUser(): Promise<{
+  id: number;
+  email: string;
+  is_active: boolean;
+  created_at: string;
+}> {
   try {
     const token = await getToken();
     if (!token) {
-      throw new Error('No authentication token found');
+      throw new Error("No authentication token found");
     }
 
     const response = await fetch(`${API_BASE_URL}/auth/me`, {
-      method: 'GET',
+      method: "GET",
       headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
       },
     });
 
@@ -267,16 +286,20 @@ export async function getCurrentUser(): Promise<{ id: number; email: string; is_
       if (response.status === 401) {
         // Token is invalid, clear it
         await logout();
-        throw new Error('Authentication token is invalid');
+        throw new Error("Authentication token is invalid");
       }
-      const error = await response.json().catch(() => ({ message: 'Failed to get user' }));
-      throw new Error(error.message || `Failed to get user: ${response.statusText}`);
+      const error = await response
+        .json()
+        .catch(() => ({ message: "Failed to get user" }));
+      throw new Error(
+        error.message || `Failed to get user: ${response.statusText}`,
+      );
     }
 
     const data = await response.json();
     return data;
   } catch (error: any) {
-    console.error('Get current user error:', error);
+    console.error("Get current user error:", error);
     throw error;
   }
 }
@@ -285,67 +308,82 @@ export async function getCurrentUser(): Promise<{ id: number; email: string; is_
  * Generate upload URL for video
  * @returns Promise with upload URL and path
  */
-export async function generateUploadUrl(): Promise<{ upload_url: string; path: string }> {
+export async function generateUploadUrl(): Promise<{
+  upload_url: string;
+  path: string;
+}> {
   try {
     const token = await getToken();
     if (!token) {
-      throw new Error('No authentication token found');
+      throw new Error("No authentication token found");
     }
 
-    const response = await fetch(`${API_BASE_URL}/auth/generate-upload-url`, {
-      method: 'POST',
+    const response = await fetch(`${API_BASE_URL}/runs/upload-url`, {
+      method: "POST",
       headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
       },
     });
 
     if (!response.ok) {
       if (response.status === 401) {
         await logout();
-        throw new Error('Authentication token is invalid');
+        throw new Error("Authentication token is invalid");
       }
-      const error = await response.json().catch(() => ({ message: 'Failed to generate upload URL' }));
-      throw new Error(error.message || `Failed to generate upload URL: ${response.statusText}`);
+      const error = await response
+        .json()
+        .catch(() => ({ message: "Failed to generate upload URL" }));
+      throw new Error(
+        error.message ||
+          `Failed to generate upload URL: ${response.statusText}`,
+      );
     }
 
     const data = await response.json();
     return data;
   } catch (error: any) {
-    console.error('Generate upload URL error:', error);
+    console.error("Generate upload URL error:", error);
     throw error;
   }
 }
 
-export async function createRunRecord(video_path: string, title: string): Promise<Run | void> {
-    try {
-        const token = await getToken();
-        if (!token) {
-            throw new Error('No authentication token found');
-        }
-        const response = await fetch(`${API_BASE_URL}/runs`, {
-            method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${token}`,
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                video_path,
-                title,
-            })
-        })
-        if (!response.ok) {
-            if (response.status === 401) {
-                await logout();
-                throw new Error('Authentication token is invalid');
-            }
-            const error = await response.json().catch(() => ({message: 'Failed to create run record' }));
-            throw new Error(error.message || `Failed to create run record: ${response.statusText}`);
-        }
-    } catch (error: any){
-        console.error('Create run record failed:', error);
-        throw error;
+export async function createRunRecord(
+  video_path: string,
+  title: string,
+): Promise<Run | void> {
+  try {
+    const token = await getToken();
+    if (!token) {
+      throw new Error("No authentication token found");
     }
+    const response = await fetch(`${API_BASE_URL}/runs`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        video_path,
+        title,
+      }),
+    });
+    if (!response.ok) {
+      if (response.status === 401) {
+        await logout();
+        throw new Error("Authentication token is invalid");
+      }
+      const error = await response
+        .json()
+        .catch(() => ({ message: "Failed to create run record" }));
+      throw new Error(
+        error.message || `Failed to create run record: ${response.statusText}`,
+      );
+    }
+  } catch (error: any) {
+    console.error("Create run record failed:", error);
+    throw error;
+  }
 }
 // utils/devAuth.ts
 export async function loginWithApple(identityToken: string) {
@@ -365,6 +403,8 @@ export async function loginWithApple(identityToken: string) {
   }
 
   await storeToken(data.access_token); // <- same as login()
-  return { access_token: data.access_token, token_type: data.token_type || "bearer" };
+  return {
+    access_token: data.access_token,
+    token_type: data.token_type || "bearer",
+  };
 }
-
