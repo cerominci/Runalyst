@@ -1,6 +1,7 @@
+import { ExperienceLevel } from "@/constants/types";
 import React from "react";
-import Dropdown from "../../atomic/Inputs/Dropdown";
 import { ViewStyle } from "react-native";
+import Dropdown, { DropdownOption } from "../../atomic/Inputs/Dropdown";
 
 interface ExperienceLevelSelectorProps {
   selectedValue: string | null;
@@ -8,10 +9,11 @@ interface ExperienceLevelSelectorProps {
   style?: ViewStyle;
 }
 
-const EXPERIENCE_OPTIONS = [
-  "Beginner (just starting)",
-  "Intermediate (running regularly)",
-  "Advanced (competitive runner)",
+const EXPERIENCE_OPTIONS: DropdownOption[] = [
+  { label: "Beginner (just starting)", value: ExperienceLevel.BEGINNER },
+  { label: "Intermediate (running regularly)", value: ExperienceLevel.INTERMEDIATE },
+  { label: "Advanced (competitive runner)", value: ExperienceLevel.ADVANCED },
+  { label: "Elite (highly competitive)", value: ExperienceLevel.ELITE },
 ];
 
 const ExperienceLevelSelector: React.FC<ExperienceLevelSelectorProps> = ({

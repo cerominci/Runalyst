@@ -1,5 +1,12 @@
 Recommendation
 
+!!eğer çalışmıyosa dockerdan açılan app:
+yeni terminalden:
+docker attach expo-app
+sonra alt ok tuşu+enter diyip anonymous seç
+sonra çalışacak
+
+
 
 Do not update: react, react-dom, react-native, and Expo-managed packages
 Safe to update: @react-navigation/* packages

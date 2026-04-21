@@ -16,7 +16,7 @@ import {
   ProfileUpdateIn,
   RunningGoal,
 } from "@/constants/types";
-import { getCurrentUser, updateProfile } from "@/utils/devAuth";
+import { getMyProfile, updateProfile } from "@/utils/devAuth";
 import { useRouter } from "expo-router";
 import { useEffect, useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
@@ -41,19 +41,29 @@ export default function ProfilePage() {
 
   const loadProfile = async () => {
     setIsLoading(true);
+    setError(null);
     try {
-      const user = await getCurrentUser();
-      if (user.profile) {
-        setAge(user.profile.age?.toString() || "");
-        setWeight(user.profile.weight?.toString() || "");
-        setHeight(user.profile.height?.toString() || "");
-        setGender(user.profile.gender || null);
-        setExperienceLevel(user.profile.experience_level || null);
-        setRunningGoal(user.profile.running_goal || null);
-        setHasInjuries(user.profile.has_injuries ?? null);
+      const profile = await getMyProfile();
+      if (profile) {
+        setAge(profile.age?.toString() || "");
+        setWeight(profile.weight?.toString() || "");
+        setHeight(profile.height?.toString() || "");
+        setGender(profile.gender ?? null);
+        setExperienceLevel(profile.experience_level ?? null);
+        setRunningGoal(profile.running_goal ?? null);
+        setHasInjuries(profile.has_injuries ?? null);
+      } else {
+        setAge("");
+        setWeight("");
+        setHeight("");
+        setGender(null);
+        setExperienceLevel(null);
+        setRunningGoal(null);
+        setHasInjuries(null);
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error("Failed to load profile:", err);
+      setError(err?.message ?? "Could not load your profile. Check that you are logged in.");
     } finally {
       setIsLoading(false);
     }
@@ -108,7 +118,7 @@ export default function ProfilePage() {
         gender: gender as Gender,
         experience_level: experienceLevel as ExperienceLevel,
         running_goal: runningGoal as RunningGoal,
-        has_injuries: hasInjuries,
+        has_injuries: hasInjuries!,
       };
 
       console.log("Profile data:", profileData);

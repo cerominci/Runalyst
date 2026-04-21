@@ -1,6 +1,7 @@
+import { RunningGoal } from "@/constants/types";
 import React from "react";
-import Dropdown from "../../atomic/Inputs/Dropdown";
 import { ViewStyle } from "react-native";
+import Dropdown, { DropdownOption } from "../../atomic/Inputs/Dropdown";
 
 interface RunningGoalSelectorProps {
   selectedValue: string | null;
@@ -8,13 +9,13 @@ interface RunningGoalSelectorProps {
   style?: ViewStyle;
 }
 
-const GOAL_OPTIONS = [
-  "Improve running form",
-  "Increase endurance",
-  "Increase speed",
-  "Injury prevention",
-  "Weight loss",
-  "General fitness",
+const GOAL_OPTIONS: DropdownOption[] = [
+  { label: "Weight loss", value: RunningGoal.WEIGHT_LOSS },
+  { label: "Improve fitness", value: RunningGoal.IMPROVE_FITNESS },
+  { label: "Marathon training", value: RunningGoal.MARATHON_TRAINING },
+  { label: "Speed improvement", value: RunningGoal.SPEED_IMPROVEMENT },
+  { label: "Stress relief", value: RunningGoal.STRESS_RELIEF },
+  { label: "Social running", value: RunningGoal.SOCIAL_RUNNING },
 ];
 
 const RunningGoalSelector: React.FC<RunningGoalSelectorProps> = ({
@@ -35,4 +36,3 @@ const RunningGoalSelector: React.FC<RunningGoalSelectorProps> = ({
 };
 
 export default RunningGoalSelector;
-

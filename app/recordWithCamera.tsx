@@ -239,7 +239,7 @@ export default function App() {
         throw new Error('No authentication token found');
       }
       
-      const runResponse = await fetch(`${API_BASE_URL}/runs/`, {
+      const runResponse = await fetch(`${API_BASE_URL}/runs/create-record`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,

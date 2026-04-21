@@ -1,6 +1,7 @@
+import { Gender } from "@/constants/types";
 import React from "react";
-import Dropdown from "../../atomic/Inputs/Dropdown";
 import { ViewStyle } from "react-native";
+import Dropdown, { DropdownOption } from "../../atomic/Inputs/Dropdown";
 
 interface GenderSelectorProps {
   selectedValue: string | null;
@@ -8,7 +9,12 @@ interface GenderSelectorProps {
   style?: ViewStyle;
 }
 
-const GENDER_OPTIONS = ["Male", "Female", "Other", "Prefer not to say"];
+const GENDER_OPTIONS: DropdownOption[] = [
+  { label: "Male", value: Gender.MALE },
+  { label: "Female", value: Gender.FEMALE },
+  { label: "Other", value: Gender.OTHER },
+  { label: "Prefer not to say", value: Gender.PREFER_NOT_TO_SAY },
+];
 
 const GenderSelector: React.FC<GenderSelectorProps> = ({
   selectedValue,

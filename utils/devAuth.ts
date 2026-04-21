@@ -3,7 +3,7 @@
  * Handles login, register, and token management for video upload
  */
 
-import { Profile, ProfileUpdateIn, User } from '@/constants/types';
+import { Profile, ProfileUpdateIn } from '@/constants/types';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as SecureStore from 'expo-secure-store';
 import { Platform } from 'react-native';
@@ -22,6 +22,49 @@ export type Run = {
   created_at: string; // ISO datetime string
   user_id: number;
 };
+
+/** Normalize FastAPI / JSON error bodies so we never throw `new Error(undefined)`. */
+function messageFromApiError(
+  body: unknown,
+  status: number,
+  statusText: string,
+  fallback: string
+): string {
+  const withStatus = `${fallback} (${status}${statusText ? ` ${statusText}` : ''})`;
+  if (!body || typeof body !== 'object') {
+    return withStatus;
+  }
+  const err = body as Record<string, unknown>;
+  const d = err.detail;
+  if (typeof d === 'string' && d.trim()) {
+    return d;
+  }
+  if (Array.isArray(d) && d.length > 0) {
+    const parts = d.map((item) => {
+      if (item && typeof item === 'object' && typeof (item as { msg?: string }).msg === 'string') {
+        return (item as { msg: string }).msg;
+      }
+      try {
+        return JSON.stringify(item);
+      } catch {
+        return String(item);
+      }
+    });
+    const joined = parts.filter(Boolean).join(', ');
+    if (joined) return joined;
+  }
+  if (d !== null && typeof d === 'object') {
+    try {
+      return JSON.stringify(d);
+    } catch {
+      /* fall through */
+    }
+  }
+  if (typeof err.message === 'string' && err.message.trim()) {
+    return err.message;
+  }
+  return withStatus;
+}
 
 /**
  * Platform-specific token storage helpers
@@ -247,40 +290,46 @@ export async function isAuthenticated(): Promise<boolean> {
 }
 
 /**
- * Get current user information
- * @returns Promise with user data
+ * Current user's profile (GET /profiles/me → ProfileOut).
+ * Returns null when the user has not created a profile yet (onboarding).
  */
-export async function getCurrentUser(): Promise<User> {
-  try {
-    const token = await getToken();
-    if (!token) {
-      throw new Error('No authentication token found');
-    }
-
-    const response = await fetch(`${API_BASE_URL}/auth/me`, {
-      method: 'GET',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json',
-      },
-    });
-
-    if (!response.ok) {
-      if (response.status === 401) {
-        // Token is invalid, clear it
-        await logout();
-        throw new Error('Authentication token is invalid');
-      }
-      const error = await response.json().catch(() => ({ message: 'Failed to get user' }));
-      throw new Error(error.message || `Failed to get user: ${response.statusText}`);
-    }
-
-    const data = await response.json();
-    return data;
-  } catch (error: any) {
-    console.error('Get current user error:', error);
-    throw error;
+export async function getMyProfile(): Promise<Profile | null> {
+  const token = await getToken();
+  if (!token) {
+    throw new Error('No authentication token found');
   }
+
+  const response = await fetch(`${API_BASE_URL}/profiles/me`, {
+    method: 'GET',
+    headers: {
+      'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    },
+  });
+
+  if (!response.ok) {
+    if (response.status === 401) {
+      await logout();
+      throw new Error('Authentication token is invalid');
+    }
+    const errorBody = await response.json().catch(() => null);
+    const msg = messageFromApiError(
+      errorBody,
+      response.status,
+      response.statusText,
+      'Failed to load profile'
+    );
+    const noProfileYet =
+      response.status === 404 ||
+      /profile not found/i.test(msg) ||
+      /complete onboarding/i.test(msg);
+    if (noProfileYet) {
+      return null;
+    }
+    throw new Error(msg);
+  }
+
+  return (await response.json()) as Profile;
 }
 
 /**
@@ -294,7 +343,7 @@ export async function generateUploadUrl(): Promise<{ upload_url: string; path: s
       throw new Error('No authentication token found');
     }
 
-    const response = await fetch(`${API_BASE_URL}/auth/generate-upload-url`, {
+    const response = await fetch(`${API_BASE_URL}/runs/upload-url`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${token}`,
@@ -382,13 +431,13 @@ export async function binaryUpload(
   }
 }
 
-export async function createRunRecord(video_path: string, title: string): Promise<Run | void> {
+export async function createRunRecord(video_path: string, title: string): Promise<Run> {
   try {
     const token = await getToken();
     if (!token) {
       throw new Error('No authentication token found');
     }
-    const response = await fetch(`${API_BASE_URL}/runs`, {
+    const response = await fetch(`${API_BASE_URL}/runs/create-record`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${token}`,
@@ -397,8 +446,8 @@ export async function createRunRecord(video_path: string, title: string): Promis
       body: JSON.stringify({
         video_path,
         title,
-      })
-    })
+      }),
+    });
     if (!response.ok) {
       if (response.status === 401) {
         await logout();
@@ -407,6 +456,9 @@ export async function createRunRecord(video_path: string, title: string): Promis
       const error = await response.json().catch(() => ({ message: 'Failed to create run record' }));
       throw new Error(error.message || `Failed to create run record: ${response.statusText}`);
     }
+
+    const data = (await response.json()) as Run;
+    return data;
   } catch (error: any) {
     console.error('Create run record failed:', error);
     throw error;
@@ -445,7 +497,7 @@ export async function updateProfile(profileData: ProfileUpdateIn): Promise<Profi
       throw new Error('No authentication token found');
     }
 
-    const response = await fetch(`${API_BASE_URL}/auth/update-profile`, {
+    const response = await fetch(`${API_BASE_URL}/profiles/me`, {
       method: 'PATCH',
       headers: {
         'Authorization': `Bearer ${token}`,
@@ -459,8 +511,10 @@ export async function updateProfile(profileData: ProfileUpdateIn): Promise<Profi
         await logout();
         throw new Error('Authentication token is invalid');
       }
-      const error = await response.json().catch(() => ({ message: 'Failed to update profile' }));
-      throw new Error(error.message || `Failed to update profile: ${response.statusText}`);
+      const errorBody = await response.json().catch(() => null);
+      throw new Error(
+        messageFromApiError(errorBody, response.status, response.statusText, 'Failed to update profile')
+      );
     }
 
     const data = await response.json();
