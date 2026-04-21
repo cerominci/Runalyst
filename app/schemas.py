@@ -44,3 +44,10 @@ class SessionAskResponse(BaseModel):
     session_id: str
     question: str
     answer: str
+
+
+# --- Exercise recommendation schemas ---
+
+class ExerciseRecommendationResponse(BaseModel):
+    flagged_issues: List[Dict[str, Any]]
+    exercise_plan: Dict[str, Any]
