@@ -1,8 +1,10 @@
 import uuid
 from fastapi import HTTPException, status
+from sqlalchemy.exc import SQLAlchemyError
+
 from app.core.supabase_client import supabase_client
 from sqlalchemy.orm import Session
-from app.schemas.run import RunCreateIn
+from app.schemas.run import RunCreateIn, RunOut, RunAllOut
 from app.crud import run as crud_run
 from app.services.queue.service import send_message_to_queue
 
@@ -64,6 +66,19 @@ def get_run_details(db: Session, *, run_id: int, user_id: int):
             detail="Run not found or access denied"
         )
     return run
+
+def get_all_runs_mapped(db: Session, *, user_id: int):
+    try:
+        runs = crud_run.get_multi_by_owner(db, user_id=user_id)
+
+        run_map = {
+            run.id: RunOut.model_validate(run) for run in runs
+        }
+
+        return RunAllOut(runs=run_map)
+
+    except SQLAlchemyError as e:
+        raise HTTPException(status_code=500, detail=f"Database query failed for retrieving all runs: {e}")
 
 
 def update_run_status(db: Session, *, run_id: int, new_status: str):

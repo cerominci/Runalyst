@@ -3,7 +3,7 @@ from fastapi import APIRouter, Depends, status
 from sqlalchemy.orm import Session
 from app.deps.db import get_db
 from app.deps.auth import get_current_user_id, verify_gpu_api_key
-from app.schemas.run import RunCreateIn, RunOut
+from app.schemas.run import RunCreateIn, RunOut, RunAllOut
 
 router = APIRouter()
 
@@ -26,6 +26,13 @@ def get_run(
     user_id: int = Depends(get_current_user_id)
 ):
     return run_service.get_run_details(db, run_id=run_id, user_id=user_id)
+
+@router.get("/all", response_model=RunAllOut)
+def get_all_runs(
+        db: Session = Depends(get_db),
+        user_id: int = Depends(get_current_user_id)
+):
+    return run_service.get_all_runs_mapped(db, user_id=user_id)
 
 @router.patch("/update-status", response_model=RunOut)
 def update_status(

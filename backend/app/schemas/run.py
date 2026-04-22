@@ -1,6 +1,7 @@
 from pydantic import BaseModel
 from datetime import datetime
-from typing import Optional
+from typing import Optional, Dict
+
 
 class RunCreateIn(BaseModel):
     video_path: str
@@ -15,3 +16,6 @@ class RunOut(BaseModel):
 
     class Config:
         from_attributes = True
+
+class RunAllOut(BaseModel):
+    runs: Dict[int, RunOut]
