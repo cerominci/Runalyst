@@ -8,7 +8,7 @@ import ScreenContainer from "@/components/atomic/Layout/ScreenContainer";
 import ScrollScreen from "@/components/atomic/Layout/ScrollScreen";
 import BodyText from "@/components/atomic/Typography/BodyText";
 import Subtitle from "@/components/atomic/Typography/Subtitle";
-import { generateUploadUrl, getToken } from "@/utils/devAuth";
+import { createRunRecord, generateUploadUrl, getToken } from "@/utils/devAuth";
 import * as ImagePicker from "expo-image-picker";
 import { useRouter } from "expo-router";
 import { VideoView, useVideoPlayer } from "expo-video";
@@ -33,7 +33,11 @@ export default function GalleryPressScreen() {
     tone: PopupTone;
   }>({ visible: false, title: "", message: "", tone: "info" });
 
-  const showPopup = (title: string, message?: string, tone: PopupTone = "info") => {
+  const showPopup = (
+    title: string,
+    message?: string,
+    tone: PopupTone = "info",
+  ) => {
     setPopup({ visible: true, title, message, tone });
   };
 
@@ -52,15 +56,35 @@ export default function GalleryPressScreen() {
     onClose: () => void;
   }) {
     return (
-      <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
+      <Modal
+        visible={visible}
+        transparent
+        animationType="fade"
+        onRequestClose={onClose}
+      >
         <Pressable style={popupStyles.backdrop} onPress={onClose}>
           <Pressable style={popupStyles.card} onPress={() => {}}>
-            <View style={[popupStyles.accent, tone === "success" ? popupStyles.success : tone === "error" ? popupStyles.error : popupStyles.info]} />
+            <View
+              style={[
+                popupStyles.accent,
+                tone === "success"
+                  ? popupStyles.success
+                  : tone === "error"
+                    ? popupStyles.error
+                    : popupStyles.info,
+              ]}
+            />
             <View style={popupStyles.content}>
               <Subtitle style={popupStyles.title}>{title}</Subtitle>
-              {!!message && <BodyText style={popupStyles.message}>{message}</BodyText>}
+              {!!message && (
+                <BodyText style={popupStyles.message}>{message}</BodyText>
+              )}
 
-              <PrimaryButton title="OK" onPress={onClose} style={popupStyles.okButton} />
+              <PrimaryButton
+                title="OK"
+                onPress={onClose}
+                style={popupStyles.okButton}
+              />
             </View>
           </Pressable>
         </Pressable>
@@ -94,7 +118,6 @@ export default function GalleryPressScreen() {
     okButton: { width: "100%", paddingVertical: 14, marginTop: 6 },
   });
 
-
   const player = useVideoPlayer(selectedVideo ?? "", (p) => {
     p.loop = true;
     p.play();
@@ -102,8 +125,6 @@ export default function GalleryPressScreen() {
 
   const API_BASE = "https://runalyst-backend.onrender.com";
   const GENERATE_URL_ENDPOINT = `${API_BASE}/auth/generate-upload-url`;
-
-
 
   const pickVideoAsync = async () => {
     setError(null);
@@ -129,14 +150,13 @@ export default function GalleryPressScreen() {
     const uri = selectedVideo;
     const name = (uri.split("/").pop() || "video.mp4").toLowerCase();
 
-    const type =
-      name.endsWith(".mov")
-        ? "video/quicktime"
-        : name.endsWith(".webm")
+    const type = name.endsWith(".mov")
+      ? "video/quicktime"
+      : name.endsWith(".webm")
         ? "video/webm"
         : name.endsWith(".mkv")
-        ? "video/x-matroska"
-        : "video/mp4";
+          ? "video/x-matroska"
+          : "video/mp4";
 
     return { uri, name, type };
   }, [selectedVideo]);
@@ -171,6 +191,16 @@ export default function GalleryPressScreen() {
           throw new Error(`Upload failed (${res.status}): ${await res.text()}`);
         }
 
+        // Create run record after successful upload
+        console.log("upload_url:", upload_url);
+        console.log("link bitti");
+        try {
+          const runRecord = await createRunRecord(upload_url, "run");
+          console.log("Run record created:", runRecord);
+        } catch (e) {
+          console.error("Create run record failed:", e);
+        }
+
         setSuccess("Video uploaded successfully!");
         showPopup("Success", "Video uploaded successfully!");
         return;
@@ -179,7 +209,11 @@ export default function GalleryPressScreen() {
       // ✅ Native: keep your current approach
       const form = new FormData();
       // @ts-ignore
-      form.append("video", { uri: fileInfo.uri, name: fileInfo.name, type: fileInfo.type });
+      form.append("video", {
+        uri: fileInfo.uri,
+        name: fileInfo.name,
+        type: fileInfo.type,
+      });
 
       const res = await fetch(upload_url, {
         method: "PUT",
@@ -189,6 +223,15 @@ export default function GalleryPressScreen() {
 
       if (!res.ok) {
         throw new Error(`Upload failed (${res.status}): ${await res.text()}`);
+      }
+
+      // Create run record after successful upload
+      console.log("upload_url:", upload_url);
+      try {
+        const runRecord = await createRunRecord(upload_url, "run");
+        console.log("Run record created:", runRecord);
+      } catch (e) {
+        console.error("Create run record failed:", e);
       }
 
       setSuccess("Video uploaded successfully!");
@@ -210,22 +253,24 @@ export default function GalleryPressScreen() {
     }
 
     await uploadVideoAsync();
-    console.log("Starting analysis for:", selectedVideo);
   };
 
   return (
     <ScreenContainer>
-    <PopupModal
-      visible={popup.visible}
-      title={popup.title}
-      message={popup.message}
-      tone={popup.tone}
-      onClose={hidePopup}
-    />
+      <PopupModal
+        visible={popup.visible}
+        title={popup.title}
+        message={popup.message}
+        tone={popup.tone}
+        onClose={hidePopup}
+      />
 
       <ScrollScreen>
         <Column style={styles.content}>
-          <Banner title="Select from Gallery" onBackPress={() => router.back()} />
+          <Banner
+            title="Select from Gallery"
+            onBackPress={() => router.back()}
+          />
 
           <Subtitle style={styles.subtitle}>
             Choose a video from your gallery to analyze your running form.
@@ -242,7 +287,7 @@ export default function GalleryPressScreen() {
             </View>
           ) : (
             <>
-              {(!success && selectedVideo) ? (
+              {!success && selectedVideo ? (
                 <View style={styles.videoContainer}>
                   <VideoView
                     player={player}
@@ -250,14 +295,22 @@ export default function GalleryPressScreen() {
                     allowsFullscreen
                     allowsPictureInPicture
                   />
-                  <InfoAlert message={"Video selected successfully. You can now start the analysis."} />
+                  <InfoAlert
+                    message={
+                      "Video selected successfully. You can now start the analysis."
+                    }
+                  />
                 </View>
               ) : (
                 <InfoAlert message="Tap the button below to select a video from your gallery." />
               )}
 
               <PrimaryButton
-                title={selectedVideo ? "Select Different Video" : "Pick Video from Gallery"}
+                title={
+                  selectedVideo
+                    ? "Select Different Video"
+                    : "Pick Video from Gallery"
+                }
                 onPress={pickVideoAsync}
                 disabled={isUploading}
                 style={styles.pickButton}

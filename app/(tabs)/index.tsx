@@ -5,13 +5,14 @@ import ScreenContainer from "@/components/atomic/Layout/ScreenContainer";
 import ScrollScreen from "@/components/atomic/Layout/ScrollScreen";
 import Subtitle from "@/components/atomic/Typography/Subtitle";
 import Title from "@/components/atomic/Typography/Title";
+import HomeMenuButton from "@/components/composite/Home/HomeMenuButton";
 import type { Href } from "expo-router";
 import { useRouter } from "expo-router";
 import React from "react";
 import { StyleSheet, View } from "react-native";
 
 export default function HomeScreen() {
-const router = useRouter();
+  const router = useRouter();
 
   const handleGuidePress = () => {
     router.push("/tips");
@@ -19,6 +20,10 @@ const router = useRouter();
 
   const handleStartAnalyzing = () => {
     router.push("/analysis" as Href);
+  };
+
+  const handleProfilePress = () => {
+    router.push("/profile" as Href);
   };
 
   return (
@@ -29,8 +34,19 @@ const router = useRouter();
           <View style={styles.welcomeSection}>
             <Title style={styles.welcomeTitle}>Hello, welcome back user!</Title>
             <Subtitle style={styles.welcomeSubtitle}>
-              Track your running performance and improve your form with Runalyst.
+              Track your running performance and improve your form with
+              Runalyst.
             </Subtitle>
+          </View>
+
+          {/* Profile Section */}
+          <View style={styles.profileSection}>
+            <HomeMenuButton
+              title="View Profile"
+              description="See your uploaded videos and analysis history"
+              icon="person-outline"
+              onPress={handleProfilePress}
+            />
           </View>
 
           {/* Spacer to push button to bottom */}
@@ -80,6 +96,10 @@ const styles = StyleSheet.create({
     lineHeight: 24,
     marginTop: 8,
   },
+  profileSection: {
+    paddingTop: 16,
+    paddingBottom: 8,
+  },
   spacer: {
     flex: 1,
   },
@@ -97,4 +117,3 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
   },
 });
-

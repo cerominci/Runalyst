@@ -4,7 +4,14 @@ import { login, loginWithApple } from "@/utils/devAuth";
 import * as AppleAuthentication from "expo-apple-authentication";
 import { useRouter } from "expo-router";
 import { useState } from "react";
-import { Platform, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
+import {
+  Platform,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from "react-native";
 
 export default function SignInPage() {
   const router = useRouter();
@@ -25,15 +32,30 @@ export default function SignInPage() {
         ],
       });
 
-      // identityToken is what your backend should verify.
       if (!credential.identityToken) {
         throw new Error("Apple Sign-In did not return an identity token.");
       }
+      console.log("Apple Sign-In successful:", credential);
+      console.log("Identity Token:", credential.identityToken);
+      console.log("email:", credential.email);
+      console.log("fullName:", credential.fullName);
 
-      const result = await loginWithApple(credential.identityToken);
-      // store token same as your normal login() flow does, then:
+      await loginWithApple({
+        identityToken: credential.identityToken,
+        authorizationCode: credential.authorizationCode ?? undefined,
+        email: credential.email ?? undefined,
+        firstName: credential.fullName?.givenName ?? undefined,
+        lastName: credential.fullName?.familyName ?? undefined,
+        appleUser: credential.user,
+      });
+
       router.replace("/(tabs)");
     } catch (err: any) {
+      if (err?.code === "ERR_REQUEST_CANCELED") {
+        setError(null);
+        return;
+      }
+
       setError(err?.message ?? "Apple Sign-In failed.");
     } finally {
       setIsLoading(false);
@@ -46,14 +68,14 @@ export default function SignInPage() {
       setError("Please enter your email");
       return;
     }
-    
+
     // Basic email validation
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email.trim())) {
       setError("Please enter a valid email address");
       return;
     }
-    
+
     if (!password.trim()) {
       setError("Please enter your password");
       return;
@@ -65,12 +87,14 @@ export default function SignInPage() {
     try {
       const result = await login(email.trim(), password);
       console.log("Login successful:", result);
-      
+
       // Navigate to main app on success
       router.replace("/(tabs)");
     } catch (err: any) {
       console.error("Login error:", err);
-      setError(err.message || "Failed to sign in. Please check your credentials.");
+      setError(
+        err.message || "Failed to sign in. Please check your credentials.",
+      );
     } finally {
       setIsLoading(false);
     }
@@ -135,10 +159,12 @@ export default function SignInPage() {
         </View>
       )}
 
-
-      <TouchableOpacity onPress={() => router.push("/signup")} disabled={isLoading}>
+      <TouchableOpacity
+        onPress={() => router.push("/signup")}
+        disabled={isLoading}
+      >
         <Text style={styles.link}>
-          Don't have an account? <Text style={styles.bold}>Sign Up</Text>
+          Dont have an account? <Text style={styles.bold}>Sign Up</Text>
         </Text>
       </TouchableOpacity>
     </View>

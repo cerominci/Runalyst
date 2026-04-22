@@ -134,7 +134,7 @@ export async function register(
         } else {
           errorMessage = JSON.stringify(errorData);
         }
-      } catch (parseError) {
+      } catch {
         // If JSON parsing fails, use status text
         errorMessage = `Registration failed: ${response.statusText}`;
       }
@@ -200,7 +200,7 @@ export async function login(
         } else {
           errorMessage = JSON.stringify(errorData);
         }
-      } catch (parseError) {
+      } catch {
         errorMessage = `Login failed: ${response.statusText}`;
       }
       throw new Error(errorMessage);
@@ -348,16 +348,64 @@ export async function generateUploadUrl(): Promise<{
   }
 }
 
-export async function createRunRecord(
-  video_path: string,
-  title: string,
-): Promise<Run | void> {
+/**
+ * Get all runs for the current user
+ * @returns Promise with array of runs
+ */
+export async function getAllRuns(): Promise<Run[]> {
   try {
     const token = await getToken();
     if (!token) {
       throw new Error("No authentication token found");
     }
-    const response = await fetch(`${API_BASE_URL}/runs`, {
+
+    const response = await fetch(`${API_BASE_URL}/runs/all`, {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+    });
+
+    if (!response.ok) {
+      if (response.status === 401) {
+        await logout();
+        throw new Error("Authentication token is invalid");
+      }
+      const error = await response
+        .json()
+        .catch(() => ({ message: "Failed to get runs" }));
+      throw new Error(
+        error.message || `Failed to get runs: ${response.statusText}`,
+      );
+    }
+
+    const data = await response.json();
+
+    // Convert the runs object to an array
+    // Response format: { "runs": { "key1": run1, "key2": run2, ... } }
+    const runsArray: Run[] = Object.values(data.runs || {});
+
+    return runsArray;
+  } catch (error: any) {
+    console.error("Get all runs error:", error);
+    throw error;
+  }
+}
+
+export async function createRunRecord(
+  video_path: string,
+  title: string,
+): Promise<Run> {
+  try {
+    const token = await getToken();
+    if (!token) {
+      throw new Error("No authentication token found");
+    }
+
+    console.log("Creating run record with:", { video_path, title });
+
+    const response = await fetch(`${API_BASE_URL}/runs/create-record`, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${token}`,
@@ -368,41 +416,102 @@ export async function createRunRecord(
         title,
       }),
     });
+
+    console.log("Create run response status:", response.status);
+    console.log("Create run response statusText:", response.statusText);
+
     if (!response.ok) {
       if (response.status === 401) {
         await logout();
         throw new Error("Authentication token is invalid");
       }
-      const error = await response
-        .json()
-        .catch(() => ({ message: "Failed to create run record" }));
-      throw new Error(
-        error.message || `Failed to create run record: ${response.statusText}`,
-      );
+
+      let errorMessage = `Failed to create run record: ${response.status}`;
+      try {
+        const errorData = await response.json();
+        console.log("Error response data:", errorData);
+        if (errorData.detail) {
+          if (Array.isArray(errorData.detail)) {
+            errorMessage = errorData.detail
+              .map((err: any) => err.msg || err.message || JSON.stringify(err))
+              .join(", ");
+          } else if (typeof errorData.detail === "string") {
+            errorMessage = errorData.detail;
+          } else {
+            errorMessage = JSON.stringify(errorData.detail);
+          }
+        } else if (errorData.message) {
+          errorMessage = errorData.message;
+        } else if (errorData.error) {
+          errorMessage = errorData.error;
+        }
+      } catch (parseError) {
+        console.log("Could not parse error response:", parseError);
+        try {
+          const textResponse = await response.text();
+          console.log("Raw error response:", textResponse);
+          errorMessage += ` - ${textResponse}`;
+        } catch (textError) {
+          console.log("Could not get text response:", textError);
+        }
+      }
+
+      throw new Error(errorMessage);
     }
+
+    const data = await response.json();
+    console.log("Create run success:", data);
+    return data;
   } catch (error: any) {
     console.error("Create run record failed:", error);
     throw error;
   }
 }
 // utils/devAuth.ts
-export async function loginWithApple(identityToken: string) {
+type AppleLoginPayload = {
+  identityToken: string;
+  authorizationCode?: string;
+  email?: string;
+  firstName?: string;
+  lastName?: string;
+  appleUser?: string;
+};
+
+export async function loginWithApple(payload: AppleLoginPayload) {
   const res = await fetch(`${API_BASE_URL}/auth/apple`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ identity_token: identityToken }),
+    body: JSON.stringify({
+      identity_token: payload.identityToken,
+      authorization_code: payload.authorizationCode,
+      email: payload.email,
+      first_name: payload.firstName,
+      last_name: payload.lastName,
+      apple_user: payload.appleUser,
+    }),
   });
 
-  if (!res.ok) throw new Error(await res.text());
+  let data: any = null;
+  const text = await res.text();
 
-  const data = await res.json();
+  try {
+    data = text ? JSON.parse(text) : null;
+  } catch {
+    data = null;
+  }
 
-  // Expect the backend to return the same shape as /auth/login
-  if (!data.access_token) {
+  if (!res.ok) {
+    const message =
+      data?.detail || data?.message || text || "Apple sign-in failed.";
+    throw new Error(message);
+  }
+
+  if (!data?.access_token) {
     throw new Error("No access_token received from server (Apple login).");
   }
 
-  await storeToken(data.access_token); // <- same as login()
+  await storeToken(data.access_token);
+
   return {
     access_token: data.access_token,
     token_type: data.token_type || "bearer",

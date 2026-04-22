@@ -1,55 +1,61 @@
 import PrimaryButton from "@/components/atomic/Button/PrimaryButton";
 import SecondaryButton from "@/components/atomic/Button/SecondaryButton";
 import LoadingSpinner from "@/components/atomic/Feedback/LoadingSpinner";
-import {createRunRecord, generateUploadUrl, login, register} from "@/utils/devAuth";
+import { createRunRecord, generateUploadUrl } from "@/utils/devAuth";
 import { runPreflightCheck } from "@/utils/preflightCheck";
 import FontAwesome6 from "@expo/vector-icons/FontAwesome6";
-import {
-  CameraType,
-  CameraView,
-  useCameraPermissions,
-} from "expo-camera";
+import { CameraType, CameraView, useCameraPermissions } from "expo-camera";
 import * as FileSystem from "expo-file-system/legacy";
 import { VideoView, useVideoPlayer } from "expo-video";
 import { startTransition, useEffect, useRef, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
 // TODO: Replace with your actual email and password
-const DEV_EMAIL = 'your-email@example.com';
-const DEV_PASSWORD = 'your-password-here';
+const DEV_EMAIL = "your-email@example.com";
+const DEV_PASSWORD = "your-password-here";
 
 // TODO: Replace with your actual backend API base URL
-const API_BASE_URL = 'https://your-backend-api.com';
+const API_BASE_URL = "https://your-backend-api.com";
 
 export default function App() {
   const [permission, requestPermission] = useCameraPermissions();
   const ref = useRef<CameraView>(null);
-  const recordingPromiseRef = useRef<Promise<{ uri: string } | undefined> | null>(null);
+  const recordingPromiseRef = useRef<Promise<
+    { uri: string } | undefined
+  > | null>(null);
   const checkIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const [uri, setUri] = useState<string | null>(null);
   const [facing, setFacing] = useState<CameraType>("back");
   const [recording, setRecording] = useState(false);
   const [isVideo, setIsVideo] = useState(false);
-  const [status, setStatus] = useState<"loading" | "checking" | "ready" | "fail">("loading");
-  const [metrics, setMetrics] = useState<{ avgBrightness?: number; avgSharpness?: number } | null>(null);
+  const [status, setStatus] = useState<
+    "loading" | "checking" | "ready" | "fail"
+  >("loading");
+  const [metrics, setMetrics] = useState<{
+    avgBrightness?: number;
+    avgSharpness?: number;
+  } | null>(null);
   const [mode, setMode] = useState<"day" | "night">("day");
   const [isUploading, setIsUploading] = useState(false);
-  
+
   // Create video player for expo-video (hook must be at top level)
-  const player = useVideoPlayer(uri || '', (player) => {
+  const player = useVideoPlayer(uri || "", (player) => {
     player.loop = true;
   });
-  
+
   // Update player source when URI changes
   useEffect(() => {
     if (uri) {
       // Use replaceAsync to avoid UI freezes on iOS
-      player.replaceAsync(uri).then(() => {
-        player.loop = true;
-        player.play();
-      }).catch((error) => {
-        console.error("Error replacing video source:", error);
-      });
+      player
+        .replaceAsync(uri)
+        .then(() => {
+          player.loop = true;
+          player.play();
+        })
+        .catch((error) => {
+          console.error("Error replacing video source:", error);
+        });
     }
   }, [uri, player]);
 
@@ -63,7 +69,7 @@ export default function App() {
       const runCheck = async () => {
         // Don't check if camera is not available or recording
         if (!ref.current || recording) return;
-        
+
         // Store ref in a local variable to ensure it doesn't change during async operation
         const cameraRef = ref.current;
         if (!cameraRef) return;
@@ -85,17 +91,19 @@ export default function App() {
           // Run preflight check - state updates are deferred via startTransition
           const result = await runPreflightCheck(cameraRef, thresholds);
           console.log("Preflight results:", result);
-          
+
           // Check if camera is still mounted before updating state (prevents updates if unmounted)
           if (!ref.current) {
-            console.warn("Camera unmounted after preflight check, skipping state update");
+            console.warn(
+              "Camera unmounted after preflight check, skipping state update",
+            );
             return;
           }
-          
+
           // Use startTransition for all state updates to prevent blocking/unmounting
           startTransition(() => {
             setMetrics(result.metrics);
-            
+
             if (result.pass) {
               setStatus((currentStatus) => {
                 return currentStatus === "ready" ? currentStatus : "ready";
@@ -106,12 +114,17 @@ export default function App() {
           });
         } catch (err: any) {
           // If camera unmounted, don't treat it as a failure - just stop checking
-          if (err?.message?.includes("unmounted") || err?.message?.includes("Camera unmounted")) {
-            console.warn("Camera unmounted during preflight, will retry on next check");
+          if (
+            err?.message?.includes("unmounted") ||
+            err?.message?.includes("Camera unmounted")
+          ) {
+            console.warn(
+              "Camera unmounted during preflight, will retry on next check",
+            );
             return; // Don't set status to fail, just return
           }
           console.error("Error during preflight:", err);
-          
+
           // Only update state if camera is still mounted, and use startTransition
           if (ref.current) {
             startTransition(() => {
@@ -188,20 +201,20 @@ export default function App() {
       }
       return;
     }
-    
+
     // Start recording
     if (!ref.current) return;
-    
+
     // Stop quality checks while recording
     if (checkIntervalRef.current) {
       clearInterval(checkIntervalRef.current);
       checkIntervalRef.current = null;
     }
-    
+
     setRecording(true);
     const promise = ref.current.recordAsync();
     recordingPromiseRef.current = promise;
-    
+
     promise.catch((error) => {
       console.error("Recording error:", error);
       setRecording(false);
@@ -252,24 +265,24 @@ export default function App() {
 
   const handleContinue = async () => {
     if (!uri) return;
-    
+
     setIsUploading(true);
-    
+
     try {
-      console.log('Starting upload process...');
+      console.log("Starting upload process...");
 
       // Step 3: Get upload URL
-      console.log('Getting upload URL...');
+      console.log("Getting upload URL...");
       const { upload_url, path } = await generateUploadUrl();
-      console.log('Upload URL received:', { path });
-      
+      console.log("Upload URL received:", { path });
+
       // Step 4: Upload video file to signed URL
-      console.log('Reading video file...');
+      console.log("Reading video file...");
       // Read file as base64 using expo-file-system legacy API (React Native compatible)
       const base64Data = await FileSystem.readAsStringAsync(uri, {
-        encoding: 'base64' as any,
+        encoding: "base64" as any,
       });
-      
+
       // Convert base64 to Uint8Array for upload
       const byteCharacters = atob(base64Data);
       const byteNumbers = new Array(byteCharacters.length);
@@ -277,35 +290,30 @@ export default function App() {
         byteNumbers[i] = byteCharacters.charCodeAt(i);
       }
       const byteArray = new Uint8Array(byteNumbers);
-      
-      console.log('Uploading video to signed URL...');
+
+      console.log("Uploading video to signed URL...");
       // Upload to Supabase signed URL using PUT method
       const uploadResponse = await fetch(upload_url, {
-        method: 'PUT',
+        method: "PUT",
         body: byteArray,
         headers: {
-          'Content-Type': 'video/mp4',
+          "Content-Type": "video/mp4",
         },
       });
-      
+
       if (!uploadResponse.ok) {
         throw new Error(`Video upload failed: ${uploadResponse.statusText}`);
-      }else{
-          try{
-              const response = await createRunRecord(upload_url, "run");
-              if(response != null) {
-                  console.log(response);
-              }
-              else {
-                  throw new Error("Create run response is null");
-              }
-          }catch(e){
-              console.error("Create run record failed" +  e);
-          }
+      } else {
+        try {
+          const runRecord = await createRunRecord(path, "run");
+          console.log("Run record created:", runRecord);
+        } catch (e) {
+          console.error("Create run record failed", e);
+        }
       }
-      
-      console.log('Video uploaded successfully to:', path);
-      
+
+      console.log("Video uploaded successfully to:", path);
+
       /*
       // Step 5: Create run record
       console.log('Creating run record...');
@@ -337,11 +345,10 @@ export default function App() {
       // TODO: Navigate to analysis page or handle success
       // router.push('/analysis' as any);
       */
-      alert('Video uploaded successfully!');
-      
+      alert("Video uploaded successfully!");
     } catch (error: any) {
-      console.error('Error in upload process:', error);
-      alert(`Failed to upload video: ${error.message || 'Unknown error'}`);
+      console.error("Error in upload process:", error);
+      alert(`Failed to upload video: ${error.message || "Unknown error"}`);
     } finally {
       setIsUploading(false);
     }
@@ -359,7 +366,9 @@ export default function App() {
         <View style={styles.loadingContainer}>
           <LoadingSpinner size="large" />
           <Text style={styles.loadingText}>Uploading video...</Text>
-          <Text style={styles.loadingSubtext}>Please wait while we process your video</Text>
+          <Text style={styles.loadingSubtext}>
+            Please wait while we process your video
+          </Text>
         </View>
       );
     }
@@ -399,7 +408,7 @@ export default function App() {
           mute={false}
           responsiveOrientationWhenOrientationLocked
         />
-        
+
         {/* Mode selector */}
         {!recording && (
           <View style={styles.modeContainer}>
@@ -407,10 +416,15 @@ export default function App() {
               onPress={() => toggleMode()}
               style={[
                 styles.modeButton,
-                { backgroundColor: mode === "day" ? "#3B82F6" : "#E5E7EB" }
+                { backgroundColor: mode === "day" ? "#3B82F6" : "#E5E7EB" },
               ]}
             >
-              <Text style={[styles.modeButtonText, { color: mode === "day" ? "#FFFFFF" : "#64748B" }]}>
+              <Text
+                style={[
+                  styles.modeButtonText,
+                  { color: mode === "day" ? "#FFFFFF" : "#64748B" },
+                ]}
+              >
                 Day
               </Text>
             </Pressable>
@@ -418,10 +432,15 @@ export default function App() {
               onPress={() => toggleMode()}
               style={[
                 styles.modeButton,
-                { backgroundColor: mode === "night" ? "#6366F1" : "#E5E7EB" }
+                { backgroundColor: mode === "night" ? "#6366F1" : "#E5E7EB" },
               ]}
             >
-              <Text style={[styles.modeButtonText, { color: mode === "night" ? "#FFFFFF" : "#64748B" }]}>
+              <Text
+                style={[
+                  styles.modeButtonText,
+                  { color: mode === "night" ? "#FFFFFF" : "#64748B" },
+                ]}
+              >
                 Night
               </Text>
             </Pressable>
@@ -438,28 +457,41 @@ export default function App() {
               <Text style={styles.statusText}>Analyzing quality...</Text>
             )}
             {status === "ready" && (
-              <Text style={[styles.statusText, styles.readyText]}>✅ Ready to record</Text>
+              <Text style={[styles.statusText, styles.readyText]}>
+                ✅ Ready to record
+              </Text>
             )}
             {status === "fail" && (
-              <Text style={[styles.statusText, styles.failText]}>❌ Quality too low</Text>
+              <Text style={[styles.statusText, styles.failText]}>
+                ❌ Quality too low
+              </Text>
             )}
-            {metrics && (
-              <Text style={styles.adviceText}>{getAdvice()}</Text>
-            )}
+            {metrics && <Text style={styles.adviceText}>{getAdvice()}</Text>}
           </View>
         )}
 
         <View style={styles.shutterContainer}>
           <Pressable onPress={toggleFacing} disabled={recording}>
-            <FontAwesome6 name="rotate-left" size={32} color={recording ? "#666" : "white"} />
+            <FontAwesome6
+              name="rotate-left"
+              size={32}
+              color={recording ? "#666" : "white"}
+            />
           </Pressable>
-          <Pressable onPress={recordVideo} disabled={status !== "ready" && !recording}>
+          <Pressable
+            onPress={recordVideo}
+            disabled={status !== "ready" && !recording}
+          >
             {({ pressed }) => (
               <View
                 style={[
                   styles.shutterBtn,
                   {
-                    opacity: pressed ? 0.5 : (status === "ready" || recording) ? 1 : 0.5,
+                    opacity: pressed
+                      ? 0.5
+                      : status === "ready" || recording
+                        ? 1
+                        : 0.5,
                   },
                 ]}
               >
