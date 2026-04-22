@@ -3,8 +3,8 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.db.session import db_ping
-#from app.workers.dispatcher import run_dispatcher_periodically
 from app.api.router import api_router as main_router
+from app.core.logging_config import setup_logging
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -13,13 +13,15 @@ async def lifespan(app: FastAPI):
     from app.db.base import Base
     from app.db.session import engine
 
+    import logging
+    logger = logging.getLogger(__name__)
+    logger.info("Runalyst Backend Refactor is starting up...")
+
     # Create tables if they don't exist
     Base.metadata.create_all(bind=engine)
     print("✓ Database tables created/verified")
     print("✓ Application started")
 
-    #Queue polling will be done by gpu server
-    #dispatcher_task = asyncio.create_task(run_dispatcher_periodically())
     
     yield
     
@@ -27,6 +29,7 @@ async def lifespan(app: FastAPI):
     print("✓ Application shutting down")
 
 
+setup_logging()
 app = FastAPI(
     title="Runalyst API",
     description="User authentication and authorization API",

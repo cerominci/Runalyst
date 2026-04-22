@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, status
 from sqlalchemy.orm import Session
 from typing import List
+import logging
 
 from app.deps.db import get_db
 from app.deps.auth import get_current_user_id, verify_gpu_api_key
@@ -8,26 +9,40 @@ from app.schemas.analysis import AnalysisCreateIn, AnalysisOut
 from app.services.analysis import service as analysis_service
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
+
 
 @router.post("/save-result", response_model=AnalysisOut, status_code=status.HTTP_201_CREATED)
 def save_result(
-    payload: AnalysisCreateIn,
-    db: Session = Depends(get_db),
-    _: None = Depends(verify_gpu_api_key)
+        payload: AnalysisCreateIn,
+        db: Session = Depends(get_db),
+        _: None = Depends(verify_gpu_api_key)
 ):
-    return analysis_service.create_analysis_result(db, payload=payload)
+    # Log the metadata to track which run just finished processing
+    logger.info(f"Received analysis results for Run ID: {payload.metadata.get('run_id', 'unknown')}")
+
+    result = analysis_service.create_analysis_result(db, payload=payload)
+
+    logger.info(f"Analysis result successfully saved for Run ID: {result.run_id}")
+    return result
+
 
 @router.get("/get", response_model=AnalysisOut)
 def get_analysis(
-    run_id: int,
-    db: Session = Depends(get_db),
-    user_id: int = Depends(get_current_user_id)
+        run_id: int,
+        db: Session = Depends(get_db),
+        user_id: int = Depends(get_current_user_id)
 ):
+    logger.debug(f"User {user_id} fetching analysis for run {run_id}")
     return analysis_service.get_run_analysis(db, run_id=run_id, user_id=user_id)
+
 
 @router.get("/history", response_model=List[AnalysisOut])
 def get_history(
-    db: Session = Depends(get_db),
-    user_id: int = Depends(get_current_user_id)
+        db: Session = Depends(get_db),
+        user_id: int = Depends(get_current_user_id)
 ):
-    return analysis_service.get_user_history(db, user_id=user_id)
+    logger.info(f"User {user_id} requesting full analysis history")
+    history = analysis_service.get_user_history(db, user_id=user_id)
+    logger.info(f"Retrieved {len(history)} historical analyses for user {user_id}")
+    return history
