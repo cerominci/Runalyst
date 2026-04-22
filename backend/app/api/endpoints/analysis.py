@@ -19,7 +19,7 @@ def save_result(
         _: None = Depends(verify_gpu_api_key)
 ):
     # Log the metadata to track which run just finished processing
-    logger.info(f"Received analysis results for Run ID: {payload.get('run_id', 'unknown')}")
+    logger.info(f"Received analysis results for Run ID: {payload.run_id} from GPU API")
 
     result = analysis_service.create_analysis_result(db, payload=payload)
 
