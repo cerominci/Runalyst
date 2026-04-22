@@ -3,11 +3,8 @@ from datetime import datetime
 from pydantic import BaseModel
 
 class AnalysisBase(BaseModel):
-    avg_stride_length: float
-    avg_gct: float
-    avg_speed: float
-    avg_cadence: float
-    details: dict
+    fps: float
+    modules: dict
 
     class Config:
         from_attributes = True
