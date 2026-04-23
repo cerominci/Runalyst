@@ -3,22 +3,52 @@ import ScreenContainer from "@/components/atomic/Layout/ScreenContainer";
 import Subtitle from "@/components/atomic/Typography/Subtitle";
 import Title from "@/components/atomic/Typography/Title";
 import VideoListGrid from "@/components/composite/Analysis/VideoListGrid";
-import { getAllRuns } from "@/utils/devAuth";
+import { AnalysisResult, getAllRuns, getAnalysisHistory } from "@/utils/endpoints";
+import type { Href } from "expo-router";
+import { useRouter } from "expo-router";
 import { useIsFocused } from "@react-navigation/native";
 import React, { useCallback, useEffect, useState } from "react";
 import { StyleSheet, View } from "react-native";
 
 export default function ProfileScreen() {
+  const router = useRouter();
   const [videos, setVideos] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const isFocused = useIsFocused();
 
+  const pickScore = (value: unknown): number | undefined => {
+    if (!value || typeof value !== "object") return undefined;
+    const obj = value as Record<string, unknown>;
+    const candidates = [
+      obj.score,
+      obj.overall_score,
+      obj.total_score,
+      obj.performance_score,
+    ];
+    for (const candidate of candidates) {
+      if (typeof candidate === "number") return candidate;
+      if (typeof candidate === "string" && candidate.trim() && !Number.isNaN(Number(candidate))) {
+        return Number(candidate);
+      }
+    }
+    return undefined;
+  };
+
   const fetchRuns = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
-      const runs = await getAllRuns();
+      const [runs, history] = await Promise.all([
+        getAllRuns(),
+        getAnalysisHistory().catch(() => [] as AnalysisResult[]),
+      ]);
+      const historyByRunId = new Map<number, AnalysisResult>();
+      history.forEach((item) => {
+        if (typeof item.run_id === "number") {
+          historyByRunId.set(item.run_id, item);
+        }
+      });
 
       // Transform runs data to match VideoListGrid format
       const transformedVideos = runs.map((run) => ({
@@ -30,7 +60,9 @@ export default function ProfileScreen() {
           month: "short",
           day: "numeric",
         }),
-        score: undefined, // No score data from API yet
+        score:
+          pickScore(run.analysis_results) ??
+          pickScore(historyByRunId.get(run.id)),
       }));
 
       setVideos(transformedVideos);
@@ -49,8 +81,7 @@ export default function ProfileScreen() {
   }, [isFocused, fetchRuns]);
 
   const handleVideoSelect = (id: string) => {
-    // Handle video selection - for now, just log
-    console.log("Selected video:", id);
+    router.push(`/run/${id}` as Href);
   };
 
   return (

@@ -11,7 +11,7 @@ import { Image } from 'expo-image';
 import React, { useState } from 'react';
 import { LayoutAnimation, Platform, StyleSheet, TouchableOpacity, UIManager, View } from 'react-native';
 
-// Import images as constants - using relative paths for Expo Go compatibility
+// Local bundled images.
 const run1Image = require('../assets/images/run1.png');
 const run2Image = require('../assets/images/run2.png');
 const run3Image = require('../assets/images/run3.png');
@@ -43,29 +43,17 @@ export default function TipsScreen() {
 
           <View style={styles.previewBlock}>
             <Subtitle style={styles.imageTitle}>Start from an edge</Subtitle>
-            <Image
-              source={run1Image}
-              style={styles.previewImage}
-              contentFit="contain"
-            />
+            <Image source={run1Image} style={styles.previewImage} contentFit="contain" />
           </View>
 
           <View style={styles.previewBlock}>
             <Subtitle style={styles.imageTitle}>Keep running!</Subtitle>
-            <Image
-              source={run2Image}
-              style={styles.previewImage}
-              contentFit="contain"
-            />
+            <Image source={run2Image} style={styles.previewImage} contentFit="contain" />
           </View>
 
           <View style={styles.previewBlock}>
             <Subtitle style={styles.imageTitle}>...and finish the scene</Subtitle>
-            <Image
-              source={run3Image}
-              style={styles.previewImage}
-              contentFit="contain"
-            />
+            <Image source={run3Image} style={styles.previewImage} contentFit="contain" />
           </View>
 
           <QualityTipCard

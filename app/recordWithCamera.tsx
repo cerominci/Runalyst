@@ -1,7 +1,7 @@
 import PrimaryButton from "@/components/atomic/Button/PrimaryButton";
 import SecondaryButton from "@/components/atomic/Button/SecondaryButton";
 import LoadingSpinner from "@/components/atomic/Feedback/LoadingSpinner";
-import { binaryUpload, createRunRecord, generateUploadUrl } from "@/utils/devAuth";
+import { binaryUpload, createRunRecord, generateUploadUrl } from "@/utils/endpoints";
 import { runPreflightCheck } from "@/utils/preflightCheck";
 import FontAwesome6 from "@expo/vector-icons/FontAwesome6";
 import {
@@ -222,18 +222,12 @@ export default function App() {
       
       console.log('Video uploaded successfully to:', path);
       
-      // Step 5: Create run record
-      try {
-        const response = await createRunRecord(path, "run");
-        if (response != null) {
-          console.log('Run record created:', response);
-        } else {
-          throw new Error("Create run response is null");
-        }
-      } catch (e) {
-        console.error("Create run record failed:", e);
-        // Don't throw - upload was successful, just the record creation failed
+      // Step 5: Create run record (required for analysis to appear in app)
+      const response = await createRunRecord(path, "run");
+      if (response == null) {
+        throw new Error("Create run response is null");
       }
+      console.log("Run record created:", response);
       
       /*
       // Step 5: Create run record
@@ -266,7 +260,7 @@ export default function App() {
       // TODO: Navigate to analysis page or handle success
       // router.push('/analysis' as any);
       */
-      alert("Video uploaded successfully!");
+      alert("Video uploaded and analysis queued successfully!");
     } catch (error: any) {
       console.error("Error in upload process:", error);
       alert(`Failed to upload video: ${error.message || "Unknown error"}`);

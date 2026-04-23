@@ -8,7 +8,7 @@ import ScreenContainer from "@/components/atomic/Layout/ScreenContainer";
 import ScrollScreen from "@/components/atomic/Layout/ScrollScreen";
 import BodyText from "@/components/atomic/Typography/BodyText";
 import Subtitle from "@/components/atomic/Typography/Subtitle";
-import { binaryUpload, generateUploadUrl } from "@/utils/devAuth";
+import { binaryUpload, createRunRecord, generateUploadUrl } from "@/utils/endpoints";
 import * as ImagePicker from "expo-image-picker";
 import { useRouter } from "expo-router";
 import { VideoView, useVideoPlayer } from "expo-video";
@@ -170,19 +170,15 @@ export default function GalleryPressScreen() {
     setSuccess(null);
 
     try {
-      const { upload_url: uploadUrl } = await generateUploadUrl();
+      const { upload_url: uploadUrl, path } = await generateUploadUrl();
       
       // Use the centralized binary upload function
       await binaryUpload(fileInfo.uri, uploadUrl, fileInfo.type);
 
-      // Create run record after successful upload
-      console.log("upload_url:", upload_url);
-      try {
-        const runRecord = await createRunRecord(upload_url, "run");
-        console.log("Run record created:", runRecord);
-      } catch (e) {
-        console.error("Create run record failed:", e);
-      }
+      // Create run record after successful upload (required for analysis visibility)
+      console.log("Uploaded path:", path);
+      const runRecord = await createRunRecord(path, "run");
+      console.log("Run record created:", runRecord);
 
       setSuccess("Video uploaded successfully!");
       showPopup("Success", "Video uploaded successfully!");

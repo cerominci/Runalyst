@@ -1,6 +1,6 @@
 import PrimaryButton from "@/components/atomic/Button/PrimaryButton";
 import LoadingSpinner from "@/components/atomic/Feedback/LoadingSpinner";
-import { login, loginWithApple } from "@/utils/devAuth";
+import { login, loginWithApple } from "@/utils/endpoints";
 import * as AppleAuthentication from "expo-apple-authentication";
 import { useRouter } from "expo-router";
 import { useState } from "react";

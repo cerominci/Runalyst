@@ -16,7 +16,7 @@ import {
   ProfileUpdateIn,
   RunningGoal,
 } from "@/constants/types";
-import { getMyProfile, updateProfile } from "@/utils/devAuth";
+import { getMyProfile, updateProfile } from "@/utils/endpoints";
 import { useRouter } from "expo-router";
 import { useEffect, useState } from "react";
 import { StyleSheet, Text, View } from "react-native";

@@ -3,9 +3,10 @@
 # dependencies
 node_modules/
 .nvmrc
-
+.vscode/
 # Expo
 .expo/
+.idea/
 dist/
 web-build/
 expo-env.d.ts
