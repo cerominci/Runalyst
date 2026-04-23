@@ -8,12 +8,12 @@ import ScreenContainer from "@/components/atomic/Layout/ScreenContainer";
 import ScrollScreen from "@/components/atomic/Layout/ScrollScreen";
 import BodyText from "@/components/atomic/Typography/BodyText";
 import Subtitle from "@/components/atomic/Typography/Subtitle";
-import { createRunRecord, generateUploadUrl, getToken } from "@/utils/devAuth";
+import { binaryUpload, generateUploadUrl } from "@/utils/devAuth";
 import * as ImagePicker from "expo-image-picker";
 import { useRouter } from "expo-router";
 import { VideoView, useVideoPlayer } from "expo-video";
 import React, { useMemo, useState } from "react";
-import { Modal, Platform, Pressable, StyleSheet, View } from "react-native";
+import { Modal, Pressable, StyleSheet, View } from "react-native";
 
 export default function GalleryPressScreen() {
   const router = useRouter();
@@ -123,9 +123,6 @@ export default function GalleryPressScreen() {
     p.play();
   });
 
-  const API_BASE = "https://runalyst-backend.onrender.com";
-  const GENERATE_URL_ENDPOINT = `${API_BASE}/auth/generate-upload-url`;
-
   const pickVideoAsync = async () => {
     setError(null);
     setSuccess(null);
@@ -162,8 +159,6 @@ export default function GalleryPressScreen() {
   }, [selectedVideo]);
 
   const uploadVideoAsync = async () => {
-    const TOKEN = await getToken();
-
     if (!fileInfo) {
       setError("Pick a video first");
       showPopup("Missing video", "Pick a video first.");
@@ -175,55 +170,10 @@ export default function GalleryPressScreen() {
     setSuccess(null);
 
     try {
-      const { upload_url, path } = await generateUploadUrl();
-
-      // ✅ Web: blob + PUT
-      if (Platform.OS === "web") {
-        const videoBlob = await (await fetch(fileInfo.uri)).blob();
-
-        const res = await fetch(upload_url, {
-          method: "PUT",
-          headers: { "Content-Type": fileInfo.type },
-          body: videoBlob,
-        });
-
-        if (!res.ok) {
-          throw new Error(`Upload failed (${res.status}): ${await res.text()}`);
-        }
-
-        // Create run record after successful upload
-        console.log("upload_url:", upload_url);
-        console.log("link bitti");
-        try {
-          const runRecord = await createRunRecord(upload_url, "run");
-          console.log("Run record created:", runRecord);
-        } catch (e) {
-          console.error("Create run record failed:", e);
-        }
-
-        setSuccess("Video uploaded successfully!");
-        showPopup("Success", "Video uploaded successfully!");
-        return;
-      }
-
-      // ✅ Native: keep your current approach
-      const form = new FormData();
-      // @ts-ignore
-      form.append("video", {
-        uri: fileInfo.uri,
-        name: fileInfo.name,
-        type: fileInfo.type,
-      });
-
-      const res = await fetch(upload_url, {
-        method: "PUT",
-        headers: { Authorization: "Bearer " + TOKEN },
-        body: form,
-      });
-
-      if (!res.ok) {
-        throw new Error(`Upload failed (${res.status}): ${await res.text()}`);
-      }
+      const { upload_url: uploadUrl } = await generateUploadUrl();
+      
+      // Use the centralized binary upload function
+      await binaryUpload(fileInfo.uri, uploadUrl, fileInfo.type);
 
       // Create run record after successful upload
       console.log("upload_url:", upload_url);

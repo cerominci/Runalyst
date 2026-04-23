@@ -3,11 +3,21 @@
  * Handles login, register, and token management for video upload
  */
 
+<<<<<<< HEAD
 import * as SecureStore from "expo-secure-store";
 import { Platform } from "react-native";
 
 // TODO: Replace with your actual backend API base URL
 const API_BASE_URL = "https://runalyst-backend-2xbs.onrender.com";
+=======
+import { Profile, ProfileUpdateIn } from '@/constants/types';
+import * as FileSystem from 'expo-file-system/legacy';
+import * as SecureStore from 'expo-secure-store';
+import { Platform } from 'react-native';
+
+// TODO: Replace with your actual backend API base URL
+const API_BASE_URL = 'https://runalyst-backend-2xbs.onrender.com';
+>>>>>>> SPRINT8-app-copy
 
 // Token storage key
 const TOKEN_STORAGE_KEY = "runalyst_auth_token";
@@ -20,6 +30,49 @@ export type Run = {
   created_at: string; // ISO datetime string
   user_id: number;
 };
+
+/** Normalize FastAPI / JSON error bodies so we never throw `new Error(undefined)`. */
+function messageFromApiError(
+  body: unknown,
+  status: number,
+  statusText: string,
+  fallback: string
+): string {
+  const withStatus = `${fallback} (${status}${statusText ? ` ${statusText}` : ''})`;
+  if (!body || typeof body !== 'object') {
+    return withStatus;
+  }
+  const err = body as Record<string, unknown>;
+  const d = err.detail;
+  if (typeof d === 'string' && d.trim()) {
+    return d;
+  }
+  if (Array.isArray(d) && d.length > 0) {
+    const parts = d.map((item) => {
+      if (item && typeof item === 'object' && typeof (item as { msg?: string }).msg === 'string') {
+        return (item as { msg: string }).msg;
+      }
+      try {
+        return JSON.stringify(item);
+      } catch {
+        return String(item);
+      }
+    });
+    const joined = parts.filter(Boolean).join(', ');
+    if (joined) return joined;
+  }
+  if (d !== null && typeof d === 'object') {
+    try {
+      return JSON.stringify(d);
+    } catch {
+      /* fall through */
+    }
+  }
+  if (typeof err.message === 'string' && err.message.trim()) {
+    return err.message;
+  }
+  return withStatus;
+}
 
 /**
  * Platform-specific token storage helpers
@@ -216,10 +269,14 @@ export async function login(
     // Store token
     await storeToken(data.access_token);
 
+<<<<<<< HEAD
     return {
       access_token: data.access_token,
       token_type: data.token_type || "bearer",
     };
+=======
+    return { access_token: data.access_token, token_type: data.token_type || 'bearer' };
+>>>>>>> SPRINT8-app-copy
   } catch (error: any) {
     console.error("Login error:", error);
     throw error;
@@ -259,49 +316,46 @@ export async function isAuthenticated(): Promise<boolean> {
 }
 
 /**
- * Get current user information
- * @returns Promise with user data
+ * Current user's profile (GET /profiles/me → ProfileOut).
+ * Returns null when the user has not created a profile yet (onboarding).
  */
-export async function getCurrentUser(): Promise<{
-  id: number;
-  email: string;
-  is_active: boolean;
-  created_at: string;
-}> {
-  try {
-    const token = await getToken();
-    if (!token) {
-      throw new Error("No authentication token found");
-    }
-
-    const response = await fetch(`${API_BASE_URL}/auth/me`, {
-      method: "GET",
-      headers: {
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json",
-      },
-    });
-
-    if (!response.ok) {
-      if (response.status === 401) {
-        // Token is invalid, clear it
-        await logout();
-        throw new Error("Authentication token is invalid");
-      }
-      const error = await response
-        .json()
-        .catch(() => ({ message: "Failed to get user" }));
-      throw new Error(
-        error.message || `Failed to get user: ${response.statusText}`,
-      );
-    }
-
-    const data = await response.json();
-    return data;
-  } catch (error: any) {
-    console.error("Get current user error:", error);
-    throw error;
+export async function getMyProfile(): Promise<Profile | null> {
+  const token = await getToken();
+  if (!token) {
+    throw new Error('No authentication token found');
   }
+
+  const response = await fetch(`${API_BASE_URL}/profiles/me`, {
+    method: 'GET',
+    headers: {
+      'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    },
+  });
+
+  if (!response.ok) {
+    if (response.status === 401) {
+      await logout();
+      throw new Error('Authentication token is invalid');
+    }
+    const errorBody = await response.json().catch(() => null);
+    const msg = messageFromApiError(
+      errorBody,
+      response.status,
+      response.statusText,
+      'Failed to load profile'
+    );
+    const noProfileYet =
+      response.status === 404 ||
+      /profile not found/i.test(msg) ||
+      /complete onboarding/i.test(msg);
+    if (noProfileYet) {
+      return null;
+    }
+    throw new Error(msg);
+  }
+
+  return (await response.json()) as Profile;
 }
 
 /**
@@ -319,7 +373,7 @@ export async function generateUploadUrl(): Promise<{
     }
 
     const response = await fetch(`${API_BASE_URL}/runs/upload-url`, {
-      method: "POST",
+      method: 'POST',
       headers: {
         Authorization: `Bearer ${token}`,
         "Content-Type": "application/json",
@@ -349,121 +403,98 @@ export async function generateUploadUrl(): Promise<{
 }
 
 /**
- * Get all runs for the current user
- * @returns Promise with array of runs
+ * Upload a binary file (video) to a signed URL
+ * Handles both web (blob) and native (base64 -> Uint8Array) platforms
+ * @param fileUri - Local file URI to upload
+ * @param uploadUrl - Signed URL to upload to
+ * @param contentType - MIME type of the file (e.g., 'video/mp4')
+ * @returns Promise that resolves when upload is complete
  */
-export async function getAllRuns(): Promise<Run[]> {
+export async function binaryUpload(
+  fileUri: string,
+  uploadUrl: string,
+  contentType: string = 'video/mp4'
+): Promise<void> {
   try {
-    const token = await getToken();
-    if (!token) {
-      throw new Error("No authentication token found");
+    // Web platform: use blob
+    if (Platform.OS === 'web') {
+      const videoBlob = await (await fetch(fileUri)).blob();
+
+      const response = await fetch(uploadUrl, {
+        method: 'PUT',
+        headers: { 'Content-Type': contentType },
+        body: videoBlob,
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text().catch(() => '');
+        throw new Error(`Upload failed (${response.status}): ${errorText}`);
+      }
+
+      return;
     }
 
-    const response = await fetch(`${API_BASE_URL}/runs/all`, {
-      method: "GET",
+    // Native platform: read as base64 and convert to Uint8Array
+    const base64Data = await FileSystem.readAsStringAsync(fileUri, {
+      encoding: 'base64' as any,
+    });
+
+    // Convert base64 to Uint8Array for upload
+    const byteCharacters = atob(base64Data);
+    const byteNumbers = new Array(byteCharacters.length);
+    for (let i = 0; i < byteCharacters.length; i++) {
+      byteNumbers[i] = byteCharacters.charCodeAt(i);
+    }
+    const byteArray = new Uint8Array(byteNumbers);
+
+    const response = await fetch(uploadUrl, {
+      method: 'PUT',
+      body: byteArray,
       headers: {
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json",
+        'Content-Type': contentType,
       },
     });
 
     if (!response.ok) {
-      if (response.status === 401) {
-        await logout();
-        throw new Error("Authentication token is invalid");
-      }
-      const error = await response
-        .json()
-        .catch(() => ({ message: "Failed to get runs" }));
-      throw new Error(
-        error.message || `Failed to get runs: ${response.statusText}`,
-      );
+      const errorText = await response.text().catch(() => '');
+      throw new Error(`Upload failed (${response.status}): ${errorText}`);
     }
-
-    const data = await response.json();
-
-    // Convert the runs object to an array
-    // Response format: { "runs": { "key1": run1, "key2": run2, ... } }
-    const runsArray: Run[] = Object.values(data.runs || {});
-
-    return runsArray;
   } catch (error: any) {
-    console.error("Get all runs error:", error);
+    console.error('Binary upload error:', error);
     throw error;
   }
 }
 
-export async function createRunRecord(
-  video_path: string,
-  title: string,
-): Promise<Run> {
+export async function createRunRecord(video_path: string, title: string): Promise<Run> {
   try {
     const token = await getToken();
     if (!token) {
-      throw new Error("No authentication token found");
+      throw new Error('No authentication token found');
     }
-
-    console.log("Creating run record with:", { video_path, title });
-
     const response = await fetch(`${API_BASE_URL}/runs/create-record`, {
-      method: "POST",
+      method: 'POST',
       headers: {
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json",
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
       },
       body: JSON.stringify({
         video_path,
         title,
       }),
     });
-
-    console.log("Create run response status:", response.status);
-    console.log("Create run response statusText:", response.statusText);
-
     if (!response.ok) {
       if (response.status === 401) {
         await logout();
-        throw new Error("Authentication token is invalid");
+        throw new Error('Authentication token is invalid');
       }
-
-      let errorMessage = `Failed to create run record: ${response.status}`;
-      try {
-        const errorData = await response.json();
-        console.log("Error response data:", errorData);
-        if (errorData.detail) {
-          if (Array.isArray(errorData.detail)) {
-            errorMessage = errorData.detail
-              .map((err: any) => err.msg || err.message || JSON.stringify(err))
-              .join(", ");
-          } else if (typeof errorData.detail === "string") {
-            errorMessage = errorData.detail;
-          } else {
-            errorMessage = JSON.stringify(errorData.detail);
-          }
-        } else if (errorData.message) {
-          errorMessage = errorData.message;
-        } else if (errorData.error) {
-          errorMessage = errorData.error;
-        }
-      } catch (parseError) {
-        console.log("Could not parse error response:", parseError);
-        try {
-          const textResponse = await response.text();
-          console.log("Raw error response:", textResponse);
-          errorMessage += ` - ${textResponse}`;
-        } catch (textError) {
-          console.log("Could not get text response:", textError);
-        }
-      }
-
-      throw new Error(errorMessage);
+      const error = await response.json().catch(() => ({ message: 'Failed to create run record' }));
+      throw new Error(error.message || `Failed to create run record: ${response.statusText}`);
     }
 
-    const data = await response.json();
-    console.log("Create run success:", data);
+    const data = (await response.json()) as Run;
     return data;
   } catch (error: any) {
-    console.error("Create run record failed:", error);
+    console.error('Create run record failed:', error);
     throw error;
   }
 }
@@ -512,8 +543,43 @@ export async function loginWithApple(payload: AppleLoginPayload) {
 
   await storeToken(data.access_token);
 
-  return {
-    access_token: data.access_token,
-    token_type: data.token_type || "bearer",
-  };
+/**
+ * Update user profile
+ * @param profileData - Profile data to update
+ * @returns Promise with updated profile
+ */
+export async function updateProfile(profileData: ProfileUpdateIn): Promise<Profile> {
+  try {
+    const token = await getToken();
+    if (!token) {
+      throw new Error('No authentication token found');
+    }
+
+    const response = await fetch(`${API_BASE_URL}/profiles/me`, {
+      method: 'PATCH',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(profileData),
+    });
+
+    if (!response.ok) {
+      if (response.status === 401) {
+        await logout();
+        throw new Error('Authentication token is invalid');
+      }
+      const errorBody = await response.json().catch(() => null);
+      throw new Error(
+        messageFromApiError(errorBody, response.status, response.statusText, 'Failed to update profile')
+      );
+    }
+
+    const data = await response.json();
+    return data;
+  } catch (error: any) {
+    console.error('Update profile error:', error);
+    throw error;
+  }
 }
+

@@ -1,32 +1,9 @@
-# Expo Docker Development Guide
 
-Complete guide for running your Expo app in Docker with development workflow.
-
----
-
-## 🚀 Initial Setup
-
-### 1. Start the Container
-
-```bash
 # Build and start the container
 docker compose up --build
 
 # Or run in detached mode (background)
 docker compose up -d --build
-```
-
-### 2. Access the Expo Dev Tools
-
-Once running, open your browser:
-- **Dev Tools**: http://localhost:19000
-- **Metro Bundler**: http://localhost:8081
-
----
-
-## 📱 Running the App
-
-### Connect Your Device/Simulator
 
 **Option 1: Expo Go App (Recommended for Development)**
 ```bash

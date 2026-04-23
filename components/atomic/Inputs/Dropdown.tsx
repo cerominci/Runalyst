@@ -11,11 +11,26 @@ import {
   ViewStyle,
 } from "react-native";
 
+export type DropdownOption = string | { label: string; value: string };
+
+function normalizeOptions(options: DropdownOption[]): { label: string; value: string }[] {
+  return options.map((o) => (typeof o === "string" ? { label: o, value: o } : o));
+}
+
+function labelForValue(
+  selectedValue: string | null,
+  normalized: { label: string; value: string }[]
+): string | null {
+  if (selectedValue == null || selectedValue === "") return null;
+  const found = normalized.find((o) => o.value === selectedValue);
+  return found ? found.label : selectedValue;
+}
+
 interface DropdownProps {
   label?: string;
   selectedValue: string | null;
   onSelect: (value: string) => void;
-  options: string[];
+  options: DropdownOption[];
   placeholder?: string;
   style?: ViewStyle;
 }
@@ -29,6 +44,8 @@ const Dropdown: React.FC<DropdownProps> = ({
   style,
 }) => {
   const [open, setOpen] = useState(false);
+  const normalized = normalizeOptions(options);
+  const displayLabel = labelForValue(selectedValue, normalized);
 
   return (
     <View style={[styles.container, style]}>
@@ -40,8 +57,8 @@ const Dropdown: React.FC<DropdownProps> = ({
         onPress={() => setOpen(true)}
         activeOpacity={0.7}
       >
-        <Text style={[styles.selectedText, !selectedValue && styles.placeholder]}>
-          {selectedValue || placeholder}
+        <Text style={[styles.selectedText, !displayLabel && styles.placeholder]}>
+          {displayLabel || placeholder}
         </Text>
 
         <Ionicons name="chevron-down" size={20} color="#475569" />
@@ -55,17 +72,17 @@ const Dropdown: React.FC<DropdownProps> = ({
 
         <View style={styles.modalContent}>
           <FlatList
-            data={options}
-            keyExtractor={(item) => item}
+            data={normalized}
+            keyExtractor={(item) => item.value}
             renderItem={({ item }) => (
               <TouchableOpacity
                 style={styles.optionItem}
                 onPress={() => {
-                  onSelect(item);
+                  onSelect(item.value);
                   setOpen(false);
                 }}
               >
-                <Text style={styles.optionText}>{item}</Text>
+                <Text style={styles.optionText}>{item.label}</Text>
               </TouchableOpacity>
             )}
           />
