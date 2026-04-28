@@ -24,7 +24,7 @@ export type Run = {
   id: number;
   title: string | null;
   video_path: string;
-  analysis_results: Record<string, unknown> | null;
+  analysis_results: AnalysisModulesPayload | Record<string, unknown> | null;
   created_at: string;
   user_id: number;
 };
@@ -50,9 +50,119 @@ export type UserUpdateIn = {
   password?: string;
 };
 
+export type NumericPoint = [number, number];
+
+export type PelvisAnalysis = {
+  summary?: {
+    avg_excursion_L?: number;
+    avg_excursion_R?: number;
+    avg_excursion_all?: number;
+    avg_half_cycle_L_s?: number;
+    avg_half_cycle_R_s?: number;
+    [key: string]: unknown;
+  };
+  description?: string;
+  mean_stride_L?: number;
+  mean_stride_R?: number;
+  step_durations_s?: number[];
+  cadence_steps_per_min?: number;
+  [key: string]: unknown;
+};
+
+export type OverstrideMetric1 = {
+  overstride?: [number, string, number, number] | Array<number | string>;
+  description?: string;
+  [key: string]: unknown;
+};
+
+export type OverstrideContact = {
+  x?: number;
+  y?: number;
+  side?: string;
+  frame?: number;
+  alpha_deg?: number;
+  lean_forward_deg?: number;
+  overstride_index_deg?: number;
+  [key: string]: unknown;
+};
+
+export type OverstrideMetric2 = {
+  comment?: string;
+  description?: string;
+  per_contact?: OverstrideContact[];
+  mean_alpha_deg?: number;
+  mean_lean_forward_deg?: number;
+  mean_overstride_index_deg?: number;
+  [key: string]: unknown;
+};
+
+export type StrikeAnalysis = {
+  overall?: string;
+  confidence?: string;
+  description?: string;
+  [key: string]: unknown;
+};
+
+export type TrunkLeanAnalysis = {
+  description?: string;
+  mean_global?: number;
+  std_global?: number;
+  min_global?: number;
+  max_global?: number;
+  mean_lower?: number;
+  std_lower?: number;
+  min_lower?: number;
+  max_lower?: number;
+  mean_upper?: number;
+  std_upper?: number;
+  min_upper?: number;
+  max_upper?: number;
+  [key: string]: unknown;
+};
+
+export type KneeEvents = {
+  foot_strike?: NumericPoint[];
+  mid_stance?: NumericPoint[];
+  toe_off?: NumericPoint[];
+  mid_swing?: NumericPoint[];
+  [key: string]: unknown;
+};
+
+export type KneeFlexionAnalysis = {
+  description?: string;
+  left_events?: KneeEvents;
+  right_events?: KneeEvents;
+  [key: string]: unknown;
+};
+
+export type SwingStanceAnalysis = {
+  description?: string;
+  overall_averages?: {
+    avg_left_flight?: number;
+    avg_right_flight?: number;
+    avg_double_flight?: number;
+    [key: string]: unknown;
+  };
+  [key: string]: unknown;
+};
+
+export type AnalysisModulesPayload = {
+  pelvis_analysis?: PelvisAnalysis;
+  overstride_metric_1?: OverstrideMetric1;
+  overstride_metric_2?: OverstrideMetric2;
+  strike_analysis_new?: StrikeAnalysis;
+  trunk_lean_analysis?: TrunkLeanAnalysis;
+  knee_flexion_analysis?: KneeFlexionAnalysis;
+  swing_stance_analysis?: SwingStanceAnalysis;
+  [key: string]: unknown;
+};
+
 export type AnalysisResult = {
   id: number;
   run_id: number;
+  fps?: number;
+  created_at?: string;
+  modules?: AnalysisModulesPayload;
   [key: string]: unknown;
 };
 

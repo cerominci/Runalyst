@@ -3,7 +3,12 @@ import ScreenContainer from "@/components/atomic/Layout/ScreenContainer";
 import Subtitle from "@/components/atomic/Typography/Subtitle";
 import Title from "@/components/atomic/Typography/Title";
 import VideoListGrid from "@/components/composite/Analysis/VideoListGrid";
-import { AnalysisResult, getAllRuns, getAnalysisHistory } from "@/utils/endpoints";
+import {
+  AnalysisResult,
+  getAllRuns,
+  getAnalysisHistory,
+  getCurrentUser,
+} from "@/utils/endpoints";
 import type { Href } from "expo-router";
 import { useRouter } from "expo-router";
 import { useIsFocused } from "@react-navigation/native";
@@ -35,23 +40,58 @@ export default function ProfileScreen() {
     return undefined;
   };
 
+  const withTimeout = async <T,>(
+    promise: Promise<T>,
+    timeoutMs: number,
+    fallbackMessage: string,
+  ): Promise<T> => {
+    let timeoutHandle: ReturnType<typeof setTimeout> | null = null;
+    try {
+      return await Promise.race([
+        promise,
+        new Promise<T>((_, reject) => {
+          timeoutHandle = setTimeout(() => {
+            reject(new Error(fallbackMessage));
+          }, timeoutMs);
+        }),
+      ]);
+    } finally {
+      if (timeoutHandle) clearTimeout(timeoutHandle);
+    }
+  };
+
   const fetchRuns = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
-      const [runs, history] = await Promise.all([
-        getAllRuns(),
-        getAnalysisHistory().catch(() => [] as AnalysisResult[]),
+      const [runsResult, historyResult, currentUserResult] = await Promise.allSettled([
+        withTimeout(getAllRuns(), 12000, "Runs request timed out"),
+        withTimeout(getAnalysisHistory(), 10000, "History request timed out"),
+        withTimeout(getCurrentUser(), 10000, "User request timed out"),
       ]);
+
+      if (runsResult.status === "rejected") {
+        throw runsResult.reason instanceof Error
+          ? runsResult.reason
+          : new Error("Failed to load runs");
+      }
+
+      const runs = runsResult.value;
+      const history =
+        historyResult.status === "fulfilled" ? historyResult.value : ([] as AnalysisResult[]);
+      const currentUser =
+        currentUserResult.status === "fulfilled" ? currentUserResult.value : null;
+
       const historyByRunId = new Map<number, AnalysisResult>();
       history.forEach((item) => {
         if (typeof item.run_id === "number") {
           historyByRunId.set(item.run_id, item);
         }
       });
+      const ownRuns = currentUser ? runs.filter((run) => run.user_id === currentUser.id) : runs;
 
       // Transform runs data to match VideoListGrid format
-      const transformedVideos = runs.map((run) => ({
+      const transformedVideos = ownRuns.map((run) => ({
         id: run.id.toString(),
         thumbnailUri:
           "https://via.placeholder.com/150x100/cccccc/000000?text=No+Thumbnail",
@@ -81,6 +121,13 @@ export default function ProfileScreen() {
   }, [isFocused, fetchRuns]);
 
   const handleVideoSelect = (id: string) => {
+    console.log("[VideoClick] Selected video from profile", {
+      run_id: Number(id),
+      raw_id: id,
+      route: `/run/${id}`,
+      endpoint: "/analysis/get",
+      query: { run_id: Number(id) },
+    });
     router.push(`/run/${id}` as Href);
   };
 

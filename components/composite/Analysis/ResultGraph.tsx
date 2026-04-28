@@ -14,6 +14,7 @@ interface ResultGraphProps {
   description?: string;
   data: ResultDataPoint[];
   unit?: string;
+  orientation?: "vertical" | "horizontal";
 }
 
 const ResultGraph: React.FC<ResultGraphProps> = ({
@@ -21,6 +22,7 @@ const ResultGraph: React.FC<ResultGraphProps> = ({
   description,
   data,
   unit,
+  orientation = "vertical",
 }) => {
   if (!data || data.length === 0) {
     return (
@@ -43,17 +45,38 @@ const ResultGraph: React.FC<ResultGraphProps> = ({
         <BodyText style={styles.description}>{description}</BodyText>
       )}
 
-      <View style={styles.chartArea}>
+      <View
+        style={[
+          styles.chartArea,
+          orientation === "horizontal" ? styles.chartAreaHorizontal : undefined,
+        ]}
+      >
         {data.map((point) => {
-          const barHeight = (point.value / maxValue) * 110;
+          const barSize = (point.value / maxValue) * 110;
           return (
-            <View key={point.label} style={styles.barItem}>
-              <View style={[styles.bar, { height: barHeight }]} />
+            <View
+              key={point.label}
+              style={[
+                styles.barItem,
+                orientation === "horizontal" ? styles.barItemHorizontal : undefined,
+              ]}
+            >
+              <View
+                style={[
+                  styles.bar,
+                  orientation === "horizontal"
+                    ? styles.horizontalBar
+                    : styles.verticalBar,
+                  orientation === "horizontal"
+                    ? { width: barSize }
+                    : { height: barSize },
+                ]}
+              />
               <Text style={styles.barLabel} numberOfLines={1}>
                 {point.label}
               </Text>
               <Text style={styles.barValue}>
-                {point.value}
+                {point.value.toFixed(2)}
                 {unit ? ` ${unit}` : ""}
               </Text>
             </View>
@@ -90,20 +113,40 @@ const styles = StyleSheet.create({
     marginTop: 14,
     minHeight: 130,
   },
+  chartAreaHorizontal: {
+    flexDirection: "column",
+    alignItems: "stretch",
+    gap: 10,
+    minHeight: 0,
+  },
   barItem: {
     flex: 1,
     alignItems: "center",
     marginHorizontal: 4,
   },
+  barItemHorizontal: {
+    flex: 0,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginHorizontal: 0,
+  },
   bar: {
-    width: 10,
     borderRadius: 999,
     backgroundColor: "#3B82F6",
+  },
+  verticalBar: {
+    width: 10,
+  },
+  horizontalBar: {
+    height: 10,
+    minWidth: 2,
   },
   barLabel: {
     marginTop: 6,
     fontSize: 10,
     color: "#6B7280",
+    minWidth: 28,
   },
   barValue: {
     marginTop: 2,
