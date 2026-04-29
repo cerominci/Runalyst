@@ -17,12 +17,14 @@ import {
   RunningGoal,
 } from "@/constants/types";
 import { getMyProfile, updateProfile } from "@/utils/endpoints";
-import { useRouter } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
 
 export default function ProfilePage() {
   const router = useRouter();
+  const params = useLocalSearchParams<{ mode?: string }>();
+  const isUpdateMode = params.mode === "update";
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -126,8 +128,11 @@ export default function ProfilePage() {
       await updateProfile(profileData);
 
 
-      // Navigate to main app
-      router.replace("/(tabs)");
+      if (isUpdateMode) {
+        router.replace("/(tabs)/account");
+      } else {
+        router.replace("/(tabs)");
+      }
     } catch (err: any) {
       console.error("Profile submission error:", err);
       setError(err.message || "Failed to save profile. Please try again.");
@@ -141,9 +146,13 @@ export default function ProfilePage() {
       <ScrollScreen>
         <View style={styles.container}>
           <View style={styles.header}>
-            <Subtitle style={styles.title}>Complete Your Profile</Subtitle>
+            <Subtitle style={styles.title}>
+              {isUpdateMode ? "Update Your Profile" : "Complete Your Profile"}
+            </Subtitle>
             <Text style={styles.subtitle}>
-              Help us personalize your running analysis experience
+              {isUpdateMode
+                ? "Edit your information to keep your analysis preferences accurate."
+                : "Help us personalize your running analysis experience"}
             </Text>
           </View>
 
@@ -175,7 +184,13 @@ export default function ProfilePage() {
             />
 
             <PrimaryButton
-              title={isLoading ? "Saving..." : "Complete Profile"}
+              title={
+                isLoading
+                  ? "Saving..."
+                  : isUpdateMode
+                    ? "Save Changes"
+                    : "Complete Profile"
+              }
               onPress={handleSubmit}
               disabled={isLoading}
               style={styles.submitButton}

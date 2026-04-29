@@ -7,6 +7,9 @@ import Title from "@/components/atomic/Typography/Title";
 import ContactTrendMiniChart, {
   ContactTrendPoint,
 } from "@/components/composite/Analysis/ContactTrendMiniChart";
+import EventDegreeLineChart, {
+  EventDegreePoint,
+} from "@/components/composite/Analysis/EventDegreeLineChart";
 import EventPairsTable from "@/components/composite/Analysis/EventPairsTable";
 import KeyValueGrid, {
   KeyValueItem,
@@ -16,7 +19,6 @@ import ResultGraph from "@/components/composite/Analysis/ResultGraph";
 import ResultSection from "@/components/composite/Analysis/ResultSection";
 import ResultStatsTable from "@/components/composite/Analysis/ResultStatsTable";
 import StrideDonutComparison from "@/components/composite/Analysis/StrideDonutComparison";
-import { MOCK_ANALYSIS_MODULES } from "@/constants/mockAnalysis";
 import {
   AnalysisModulesPayload,
   AnalysisResult,
@@ -37,8 +39,6 @@ type ResolvedAnalysis = {
   modules: AnalysisModulesPayload;
   source: "analysis_get" | "history_fallback" | "run_fallback";
 };
-
-const USE_STATIC_ANALYSIS_PREVIEW = true;
 
 type DebugInfo = {
   runId: number;
@@ -171,11 +171,29 @@ function toEventRows(event: unknown): [number, number][] {
     });
 }
 
+function buildSortedKneeSeries(events?: KneeEvents): EventDegreePoint[] {
+  if (!events) return [];
+  const allPoints = [
+    ...toEventRows(events.foot_strike),
+    ...toEventRows(events.mid_stance),
+    ...toEventRows(events.toe_off),
+    ...toEventRows(events.mid_swing),
+  ];
+  return allPoints
+    .map(([frame, degree]) => ({ frame, degree }))
+    .sort((a, b) => a.frame - b.frame);
+}
+
 function renderKneeEvents(title: string, events?: KneeEvents) {
   if (!events) return null;
+  const sortedSeries = buildSortedKneeSeries(events);
   return (
     <View style={styles.kneeBlock}>
       <Subtitle style={styles.subsectionTitle}>{title}</Subtitle>
+      <EventDegreeLineChart
+        title={`${title} Knee Degree Trend`}
+        data={sortedSeries}
+      />
       <EventPairsTable title="Foot Strike" rows={toEventRows(events.foot_strike)} />
       <EventPairsTable title="Mid Stance" rows={toEventRows(events.mid_stance)} />
       <EventPairsTable title="Toe Off" rows={toEventRows(events.toe_off)} />
@@ -204,24 +222,6 @@ export default function RunDetailScreen() {
     setLoading(true);
     setError(null);
     setDebugInfo({ runId });
-
-    if (USE_STATIC_ANALYSIS_PREVIEW) {
-      const mockResolved: ResolvedAnalysis = {
-        id: runId,
-        fps: 57,
-        created_at: new Date().toISOString(),
-        modules: MOCK_ANALYSIS_MODULES,
-        source: "run_fallback",
-      };
-      console.log("[AnalysisFlow] Using static preview payload", {
-        run_id: runId,
-        modules: Object.keys(MOCK_ANALYSIS_MODULES),
-      });
-      setResolved(mockResolved);
-      setDebugInfo({ runId, source: mockResolved.source });
-      setLoading(false);
-      return;
-    }
 
     console.log("[AnalysisFlow] Expected /analysis/get response schema", {
       id: "number",

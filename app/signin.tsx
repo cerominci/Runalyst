@@ -15,6 +15,7 @@ import {
 
 export default function SignInPage() {
   const router = useRouter();
+  const POST_LOGIN_ROUTE = "/(tabs)" as const;
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -49,7 +50,7 @@ export default function SignInPage() {
         appleUser: credential.user,
       });
 
-      router.replace("/(tabs)");
+      router.replace(POST_LOGIN_ROUTE);
     } catch (err: any) {
       if (err?.code === "ERR_REQUEST_CANCELED") {
         setError(null);
@@ -89,7 +90,7 @@ export default function SignInPage() {
       console.log("Login successful:", result);
 
       // Navigate to main app on success
-      router.replace("/(tabs)");
+      router.replace(POST_LOGIN_ROUTE);
     } catch (err: any) {
       console.error("Login error:", err);
       setError(

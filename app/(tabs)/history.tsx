@@ -1,153 +1,252 @@
-import Row from "@/components/atomic/Layout/Row";
+import BodyText from "@/components/atomic/Typography/BodyText";
 import ScreenContainer from "@/components/atomic/Layout/ScreenContainer";
 import ScrollScreen from "@/components/atomic/Layout/ScrollScreen";
 import Title from "@/components/atomic/Typography/Title";
-import BodyPartSelector from "@/components/composite/History/BodyPartSelector";
 import HistoryChart, { HistoryDataPoint } from "@/components/composite/History/HistoryChart";
 import IntervalSelector from "@/components/composite/History/IntervalSelector";
 import LineChart, { TimeSeriesDataPoint } from "@/components/composite/History/LineChart";
 import MetricCard from "@/components/composite/History/MetricCard";
-import React, { useMemo, useState } from "react";
-import { StyleSheet, View } from "react-native";
+import { AnalysisResult, getAnalysisHistory } from "@/utils/endpoints";
+import DateTimePicker, { DateTimePickerEvent } from "@react-native-community/datetimepicker";
+import React, { useEffect, useMemo, useState } from "react";
+import { Pressable, StyleSheet, View } from "react-native";
 
-// TODO: Replace mock data with actual database fetch
-// Example: const fetchHistoryData = async (interval: string, bodyPart: string | null) => { ... }
+type IntervalOption = "last_2_days" | "last_week" | "last_month" | "custom";
 
-// Helper function to generate dates based on interval
-const generateDates = (interval: string): string[] => {
-  const today = new Date();
-  const dates: string[] = [];
-  const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+type ExtractedPoint = {
+  id: string;
+  createdAt: Date;
+  dateLabel: string;
+  cadence: number;
+  strideLength: number;
+  verticalOscillation: number;
+  overstrideIndex: number;
+  leanDegree: number;
+  modulesCount: number;
+};
 
-  let daysCount = 7;
-  if (interval.includes("2 days")) daysCount = 2;
-  else if (interval.includes("10 days")) daysCount = 10;
-  else if (interval.includes("month")) daysCount = 30;
-  else if (interval.includes("videos")) daysCount = 4;
-
-  for (let i = daysCount - 1; i >= 0; i--) {
-    const date = new Date(today);
-    date.setDate(date.getDate() - i);
-    const day = date.getDate();
-    const month = monthNames[date.getMonth()];
-    dates.push(`${day} ${month}`);
+function asNumber(value: unknown): number | null {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value === "string" && value.trim()) {
+    const parsed = Number(value);
+    if (Number.isFinite(parsed)) return parsed;
   }
+  return null;
+}
 
-  return dates;
-};
+function safeRecord(value: unknown): Record<string, unknown> | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  return value as Record<string, unknown>;
+}
 
-// Mock data generator - will be replaced with database queries
-const generateMockData = (
-  interval: string,
-  bodyPart: string | null
-): {
-  chartData: HistoryDataPoint[];
-  timeSeriesData: TimeSeriesDataPoint[];
-  metrics: {
-    cadence: { value: string; trend: "up" | "down" | "neutral" };
-    strideLength: { value: string; trend: "up" | "down" | "neutral" };
-    groundContact: { value: string; trend: "up" | "down" | "neutral" };
-    verticalOscillation: { value: string; trend: "up" | "down" | "neutral" };
-  };
-} => {
-  // Generate different data based on interval and body part
-  const intervalMultiplier = interval.includes("2 days") ? 1 : interval.includes("10 days") ? 5 : 2;
-  const bodyPartModifier = bodyPart === "Knees" ? 0.9 : bodyPart === "Hips" ? 1.1 : 1.0;
+function dateLabel(date: Date) {
+  return date.toLocaleDateString("en-US", { day: "2-digit", month: "short" });
+}
 
-  const dates = generateDates(interval);
-  const daysCount = dates.length;
-
-  // Generate time series data with all metrics
-  const timeSeriesData: TimeSeriesDataPoint[] = dates.map((date, index) => {
-    // Create variation in values over time
-    const variation = 1 + (Math.sin(index * 0.5) * 0.15); // Sine wave for natural variation
-    const trend = 1 + (index / daysCount) * 0.1; // Slight upward trend
-
-    return {
-      date,
-      cadence: Math.round(165 * variation * trend * bodyPartModifier),
-      strideLength: Number((1.15 * variation * trend * bodyPartModifier).toFixed(2)),
-      groundContact: Math.round(225 * (1 / variation) * (1 / trend) * bodyPartModifier),
-      verticalOscillation: Number((8.2 * variation * (1 / trend) * bodyPartModifier).toFixed(1)),
-    };
-  });
-
-  // Generate bar chart data (aggregated score)
-  const baseValues = [85, 92, 78, 95, 88, 90, 87];
-  const chartData: HistoryDataPoint[] = baseValues.slice(0, daysCount).map((val, index) => ({
-    label: interval.includes("videos")
-      ? `Run #${index + 1}`
-      : dates[index] || `Day ${index + 1}`,
-    value: Math.round(val * intervalMultiplier * bodyPartModifier),
-  }));
-
-  // Calculate average metrics for metric cards
-  const avgCadence = Math.round(
-    timeSeriesData.reduce((sum, d) => sum + d.cadence, 0) / timeSeriesData.length
-  );
-  const avgStride = Number(
-    (timeSeriesData.reduce((sum, d) => sum + d.strideLength, 0) / timeSeriesData.length).toFixed(2)
-  );
-  const avgGroundContact = Math.round(
-    timeSeriesData.reduce((sum, d) => sum + d.groundContact, 0) / timeSeriesData.length
-  );
-  const avgVerticalOsc = Number(
-    (timeSeriesData.reduce((sum, d) => sum + d.verticalOscillation, 0) / timeSeriesData.length).toFixed(1)
-  );
-
-  // Determine trends based on first vs last value
-  const first = timeSeriesData[0];
-  const last = timeSeriesData[timeSeriesData.length - 1];
-
-  return {
-    chartData,
-    timeSeriesData,
-    metrics: {
-      cadence: {
-        value: avgCadence.toString(),
-        trend: last.cadence > first.cadence ? "up" : last.cadence < first.cadence ? "down" : "neutral",
-      },
-      strideLength: {
-        value: avgStride.toString(),
-        trend: last.strideLength > first.strideLength ? "up" : "neutral",
-      },
-      groundContact: {
-        value: avgGroundContact.toString(),
-        trend: last.groundContact < first.groundContact ? "down" : "neutral",
-      },
-      verticalOscillation: {
-        value: avgVerticalOsc.toString(),
-        trend: last.verticalOscillation < first.verticalOscillation ? "down" : "neutral",
-      },
-    },
-  };
-};
+function trendFromLatestVsOthers(
+  points: ExtractedPoint[],
+  selector: (p: ExtractedPoint) => number,
+  lowerIsBetter = false,
+) {
+  if (points.length < 2) return { trend: "neutral" as const, latest: null as number | null, baseline: null as number | null };
+  const latest = selector(points[points.length - 1]);
+  const others = points.slice(0, -1).map(selector);
+  const baseline = others.reduce((sum, v) => sum + v, 0) / others.length;
+  if (Math.abs(latest - baseline) < 1e-6) {
+    return { trend: "neutral" as const, latest, baseline };
+  }
+  if (lowerIsBetter) {
+    return { trend: latest < baseline ? ("down" as const) : ("up" as const), latest, baseline };
+  }
+  return { trend: latest > baseline ? ("up" as const) : ("down" as const), latest, baseline };
+}
 
 export default function HistoryScreen() {
-  const [selectedInterval, setSelectedInterval] = useState<string | null>(null);
-  const [selectedBodyPart, setSelectedBodyPart] = useState<string | null>(null);
+  const [selectedInterval, setSelectedInterval] = useState<IntervalOption>("last_week");
+  const [customStartDate, setCustomStartDate] = useState<Date | null>(null);
+  const [customEndDate, setCustomEndDate] = useState<Date | null>(null);
+  const [pickerMode, setPickerMode] = useState<"start" | "end" | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [history, setHistory] = useState<AnalysisResult[]>([]);
 
-  // TODO: Replace with actual database query
-  // const { data, loading, error } = useQuery(GET_HISTORY_DATA, {
-  //   variables: { interval: selectedInterval, bodyPart: selectedBodyPart }
-  // });
+  useEffect(() => {
+    const load = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const payload = await getAnalysisHistory();
+        setHistory(payload);
+      } catch (err) {
+        const message = err instanceof Error ? err.message : "Failed to load history";
+        setError(message);
+      } finally {
+        setLoading(false);
+      }
+    };
+    load();
+  }, []);
 
-  // Generate mock data based on selections
-  const { chartData, timeSeriesData, metrics } = useMemo(() => {
-    if (!selectedInterval) {
+  const filteredPoints = useMemo<ExtractedPoint[]>(() => {
+    const now = new Date();
+    let start: Date | null = null;
+    let end: Date | null = null;
+
+    if (selectedInterval === "last_2_days") {
+      start = new Date(now);
+      start.setDate(now.getDate() - 2);
+      end = now;
+    } else if (selectedInterval === "last_week") {
+      start = new Date(now);
+      start.setDate(now.getDate() - 7);
+      end = now;
+    } else if (selectedInterval === "last_month") {
+      start = new Date(now);
+      start.setMonth(now.getMonth() - 1);
+      end = now;
+    } else if (selectedInterval === "custom") {
+      if (!customStartDate || !customEndDate) return [];
+      start = customStartDate;
+      end = new Date(customEndDate);
+      end.setHours(23, 59, 59, 999);
+    }
+
+    return history
+      .map((item, index) => {
+        const createdAt = new Date(item.created_at ?? "");
+        if (Number.isNaN(createdAt.getTime())) return null;
+
+        const modules = safeRecord(item.modules);
+        const pelvis = safeRecord(modules?.pelvis_analysis);
+        const pelvisSummary = safeRecord(pelvis?.summary);
+        const overstride2 = safeRecord(modules?.overstride_metric_2);
+        const trunk = safeRecord(modules?.trunk_lean_analysis);
+
+        const strideLeft = asNumber(pelvis?.mean_stride_L);
+        const strideRight = asNumber(pelvis?.mean_stride_R);
+        const strideLength =
+          strideLeft !== null && strideRight !== null
+            ? (strideLeft + strideRight) / 2
+            : strideLeft ?? strideRight ?? 0;
+
+        const voLeft = asNumber(pelvisSummary?.avg_excursion_L);
+        const voRight = asNumber(pelvisSummary?.avg_excursion_R);
+        const verticalOscillation =
+          voLeft !== null && voRight !== null
+            ? (voLeft + voRight) / 2
+            : voLeft ?? voRight ?? asNumber(pelvisSummary?.avg_excursion_all) ?? 0;
+
+        return {
+          id: `${String(item.id ?? item.run_id ?? "analysis")}-${createdAt.getTime()}-${index}`,
+          createdAt,
+          dateLabel: dateLabel(createdAt),
+          cadence: asNumber(pelvis?.cadence_steps_per_min) ?? 0,
+          strideLength,
+          verticalOscillation,
+          overstrideIndex: asNumber(overstride2?.mean_overstride_index_deg) ?? 0,
+          leanDegree: asNumber(trunk?.mean_global) ?? 0,
+          modulesCount: modules ? Object.keys(modules).length : 0,
+        };
+      })
+      .filter((item): item is ExtractedPoint => !!item)
+      .filter((item) => {
+        if (!start || !end) return true;
+        return item.createdAt >= start && item.createdAt <= end;
+      })
+      .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
+  }, [history, selectedInterval, customStartDate, customEndDate]);
+
+  const formatPickerDate = (date: Date | null) =>
+    date
+      ? date.toLocaleDateString("en-CA", {
+          year: "numeric",
+          month: "2-digit",
+          day: "2-digit",
+        })
+      : "Select date";
+
+  const onDatePicked = (event: DateTimePickerEvent, selected?: Date) => {
+    setPickerMode(null);
+    if (event.type !== "set" || !selected) return;
+    if (pickerMode === "start") {
+      setCustomStartDate(selected);
+      if (customEndDate && selected > customEndDate) {
+        setCustomEndDate(selected);
+      }
+      return;
+    }
+    if (pickerMode === "end") {
+      setCustomEndDate(selected);
+      if (customStartDate && selected < customStartDate) {
+        setCustomStartDate(selected);
+      }
+    }
+  };
+
+  const timeSeriesData = useMemo<TimeSeriesDataPoint[]>(
+    () =>
+      filteredPoints.map((point) => ({
+        date: point.dateLabel,
+        cadence: point.cadence,
+        strideLength: Number(point.strideLength.toFixed(2)),
+        // Reuse chart component's expected keys
+        groundContact: Number(point.overstrideIndex.toFixed(2)),
+        verticalOscillation: Number(point.verticalOscillation.toFixed(2)),
+      })),
+    [filteredPoints],
+  );
+
+  const overstrideTrend = useMemo<HistoryDataPoint[]>(
+    () =>
+      filteredPoints.map((point) => ({
+        id: point.id,
+        label: point.dateLabel,
+        value: Number(point.overstrideIndex.toFixed(2)),
+      })),
+    [filteredPoints],
+  );
+
+  const metrics = useMemo(() => {
+    if (!filteredPoints.length) {
       return {
-        chartData: [],
-        timeSeriesData: [],
-        metrics: {
-          cadence: { value: "--", trend: "neutral" as const },
-          strideLength: { value: "--", trend: "neutral" as const },
-          groundContact: { value: "--", trend: "neutral" as const },
-          verticalOscillation: { value: "--", trend: "neutral" as const },
-        },
+        cadence: { value: "--", trend: "neutral" as const },
+        strideLength: { value: "--", trend: "neutral" as const },
+        verticalOscillation: { value: "--", trend: "neutral" as const },
+        overstride: { value: "--", trend: "neutral" as const },
+        leanDegree: { value: "--", trend: "neutral" as const },
       };
     }
-    return generateMockData(selectedInterval, selectedBodyPart);
-  }, [selectedInterval, selectedBodyPart]);
+
+    const latest = filteredPoints[filteredPoints.length - 1];
+    const cadenceTrend = trendFromLatestVsOthers(filteredPoints, (p) => p.cadence);
+    const strideTrend = trendFromLatestVsOthers(filteredPoints, (p) => p.strideLength);
+    const verticalTrend = trendFromLatestVsOthers(filteredPoints, (p) => p.verticalOscillation, true);
+    const overstrideTrend = trendFromLatestVsOthers(filteredPoints, (p) => p.overstrideIndex, true);
+    const leanTrend = trendFromLatestVsOthers(filteredPoints, (p) => p.leanDegree, true);
+
+    return {
+      cadence: {
+        value: String(Math.round(latest.cadence)),
+        trend: cadenceTrend.trend,
+      },
+      strideLength: {
+        value: latest.strideLength.toFixed(2),
+        trend: strideTrend.trend,
+      },
+      verticalOscillation: {
+        value: latest.verticalOscillation.toFixed(2),
+        trend: verticalTrend.trend,
+      },
+      overstride: {
+        value: latest.overstrideIndex.toFixed(2),
+        trend: overstrideTrend.trend,
+      },
+      leanDegree: {
+        value: latest.leanDegree.toFixed(2),
+        trend: leanTrend.trend,
+      },
+    };
+  }, [filteredPoints]);
 
   return (
     <ScreenContainer>
@@ -156,106 +255,142 @@ export default function HistoryScreen() {
           <Title style={styles.headerTitle}>History</Title>
         </View>
 
-        {/* Interval Selector */}
         <View style={styles.selectorContainer}>
           <IntervalSelector
             selectedValue={selectedInterval}
-            onSelect={setSelectedInterval}
+            onSelect={(value) => setSelectedInterval(value as IntervalOption)}
+            options={[
+              { label: "Last 2 days", value: "last_2_days" },
+              { label: "Last week", value: "last_week" },
+              { label: "Last month", value: "last_month" },
+              { label: "Specific date range", value: "custom" },
+            ]}
           />
         </View>
 
-        {/* Body Part Selector */}
-        {selectedInterval && (
-          <BodyPartSelector
-            selectedPart={selectedBodyPart}
-            onSelect={setSelectedBodyPart}
-          />
-        )}
-
-        {/* Metrics Cards */}
-        {selectedInterval && (
-          <View style={styles.metricsContainer}>
-            <Row style={styles.metricsRow}>
-              <MetricCard
-                label="Cadence"
-                value={metrics.cadence.value}
-                unit="steps/min"
-                trend={metrics.cadence.trend}
-                trendText={
-                  metrics.cadence.trend === "up"
-                    ? "Better than last run"
-                    : metrics.cadence.trend === "down"
-                    ? "Lower than last run"
-                    : undefined
+        {selectedInterval === "custom" && (
+          <View style={styles.customDateContainer}>
+            <BodyText style={styles.customDateLabel}>Start date</BodyText>
+            <Pressable style={styles.dateButton} onPress={() => setPickerMode("start")}>
+              <BodyText style={styles.dateButtonText}>
+                {formatPickerDate(customStartDate)}
+              </BodyText>
+            </Pressable>
+            <BodyText style={styles.customDateLabel}>End date</BodyText>
+            <Pressable style={styles.dateButton} onPress={() => setPickerMode("end")}>
+              <BodyText style={styles.dateButtonText}>{formatPickerDate(customEndDate)}</BodyText>
+            </Pressable>
+            {pickerMode && (
+              <DateTimePicker
+                value={
+                  pickerMode === "start"
+                    ? customStartDate ?? new Date()
+                    : customEndDate ?? customStartDate ?? new Date()
                 }
-                style={styles.metricCard}
+                mode="date"
+                display="default"
+                onChange={onDatePicked}
+                maximumDate={new Date()}
               />
-              <MetricCard
-                label="Stride Length"
-                value={metrics.strideLength.value}
-                unit="m"
-                trend={metrics.strideLength.trend}
-                trendText={
-                  metrics.strideLength.trend === "up"
-                    ? "Improved"
-                    : undefined
-                }
-                style={styles.metricCard}
-              />
-            </Row>
-
-            <Row style={styles.metricsRow}>
-              <MetricCard
-                label="Ground Contact"
-                value={metrics.groundContact.value}
-                unit="ms"
-                trend={metrics.groundContact.trend}
-                trendText={
-                  metrics.groundContact.trend === "down"
-                    ? "Improved"
-                    : undefined
-                }
-                style={styles.metricCard}
-              />
-              <MetricCard
-                label="Vertical Oscillation"
-                value={metrics.verticalOscillation.value}
-                unit="cm"
-                trend={metrics.verticalOscillation.trend}
-                trendText={
-                  metrics.verticalOscillation.trend === "down"
-                    ? "Improved"
-                    : undefined
-                }
-                style={styles.metricCard}
-              />
-            </Row>
+            )}
           </View>
         )}
 
-        {/* Line Chart - All Metrics Over Time */}
-        {selectedInterval && timeSeriesData.length > 0 && (
+        {loading ? (
+          <BodyText style={styles.feedbackText}>Loading history...</BodyText>
+        ) : error ? (
+          <BodyText style={styles.errorText}>{error}</BodyText>
+        ) : (
+          <View style={styles.metricsContainer}>
+            <View style={styles.metricsRow}>
+              <MetricCard label="Cadence" value={metrics.cadence.value} unit="steps/min" trend={metrics.cadence.trend} style={styles.metricCard} />
+              <MetricCard label="Stride Length" value={metrics.strideLength.value} unit="m" trend={metrics.strideLength.trend} style={styles.metricCard} />
+            </View>
+            <View style={styles.metricsRow}>
+              <MetricCard label="Vertical Oscillation" value={metrics.verticalOscillation.value} unit="cm" trend={metrics.verticalOscillation.trend} style={styles.metricCard} />
+              <MetricCard label="Overstride Index" value={metrics.overstride.value} unit="deg" trend={metrics.overstride.trend} style={styles.metricCard} />
+            </View>
+            <View style={styles.metricsRow}>
+              <MetricCard
+                label="Lean Degree"
+                value={metrics.leanDegree.value}
+                unit="deg"
+                trend={metrics.leanDegree.trend}
+                style={styles.metricCard}
+              />
+              <View style={styles.metricCard} />
+            </View>
+          </View>
+        )}
+
+        {timeSeriesData.length > 0 && (
           <LineChart
-            title="Metrics Over Time"
-            description={`Track all your performance metrics across ${selectedInterval.toLowerCase()}.`}
+            title="Cadence Progress"
+            description="Progress chart from your history endpoint results."
             data={timeSeriesData}
+            selectedMetric="cadence"
           />
         )}
 
-        {/* History Chart - Aggregated Score */}
-        {selectedInterval && (
+        {timeSeriesData.length > 0 && (
+          <LineChart
+            title="Stride Length Progress"
+            description="Stride-length trend over selected interval."
+            data={timeSeriesData}
+            selectedMetric="strideLength"
+          />
+        )}
+
+        {overstrideTrend.length > 0 && (
           <HistoryChart
-            title="Performance Score"
-            description={`Overall performance score for ${selectedBodyPart || "all body parts"} over ${selectedInterval.toLowerCase()}.`}
-            data={chartData}
-            unit="score"
+            title="Overstride Index Trend"
+            description="Lower values generally indicate reduced overstriding."
+            data={overstrideTrend}
+            unit="deg"
           />
         )}
 
-        {/* Empty State */}
-        {!selectedInterval && (
+        {filteredPoints.length > 0 && (
+          <View style={styles.listContainer}>
+            <Title style={styles.listTitle}>Filtered History List</Title>
+            {filteredPoints.map((item) => (
+              <View key={item.id} style={styles.listItem}>
+                <BodyText style={styles.listItemDate}>
+                  {item.createdAt.toLocaleDateString("en-US", {
+                    year: "numeric",
+                    month: "short",
+                    day: "2-digit",
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  })}
+                </BodyText>
+                <BodyText style={styles.listItemDetails}>
+                  cadence {Math.round(item.cadence)} | stride {item.strideLength.toFixed(2)}m |
+                  overstride {item.overstrideIndex.toFixed(2)} deg | modules {item.modulesCount}
+                </BodyText>
+              </View>
+            ))}
+          </View>
+        )}
+
+        {selectedInterval === "custom" &&
+          !!customStartDate &&
+          !!customEndDate &&
+          filteredPoints.length === 0 &&
+          !loading &&
+          !error && (
+            <View style={styles.emptyState}>
+              <BodyText style={styles.feedbackText}>
+                No history found in this specific date range.
+              </BodyText>
+            </View>
+          )}
+
+        {!loading && !error && filteredPoints.length === 0 && selectedInterval !== "custom" && (
           <View style={styles.emptyState}>
-            {/* Empty state can be enhanced with an icon or illustration */}
+            <BodyText style={styles.feedbackText}>
+              No history data found for this interval.
+            </BodyText>
           </View>
         )}
       </ScrollScreen>
@@ -278,11 +413,34 @@ const styles = StyleSheet.create({
     marginTop: 12,
     marginBottom: 8,
   },
+  customDateContainer: {
+    marginTop: 8,
+    marginBottom: 4,
+    gap: 6,
+  },
+  customDateLabel: {
+    color: "#475569",
+    fontSize: 13,
+  },
+  dateButton: {
+    borderWidth: 1,
+    borderColor: "#CBD5E1",
+    borderRadius: 10,
+    backgroundColor: "#FFFFFF",
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    marginBottom: 8,
+  },
+  dateButtonText: {
+    color: "#0F172A",
+    fontSize: 15,
+  },
   metricsContainer: {
     marginTop: 20,
     gap: 16,
   },
   metricsRow: {
+    flexDirection: "row",
     gap: 16,
   },
   metricCard: {
@@ -294,5 +452,40 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     minHeight: 240,
     paddingHorizontal: 20,
+  },
+  feedbackText: {
+    marginTop: 12,
+    color: "#64748B",
+  },
+  errorText: {
+    marginTop: 12,
+    color: "#DC2626",
+  },
+  listContainer: {
+    marginTop: 16,
+    marginBottom: 20,
+    gap: 10,
+  },
+  listTitle: {
+    fontSize: 20,
+    fontWeight: "700",
+    color: "#0F172A",
+  },
+  listItem: {
+    backgroundColor: "#FFFFFF",
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+    borderRadius: 10,
+    padding: 12,
+    gap: 4,
+  },
+  listItemDate: {
+    fontSize: 13,
+    color: "#334155",
+    fontWeight: "600",
+  },
+  listItemDetails: {
+    fontSize: 13,
+    color: "#64748B",
   },
 });

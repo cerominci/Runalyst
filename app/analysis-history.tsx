@@ -1,8 +1,8 @@
 import Column from "@/components/atomic/Layout/Column";
 import ScreenContainer from "@/components/atomic/Layout/ScreenContainer";
 import Subtitle from "@/components/atomic/Typography/Subtitle";
-import Title from "@/components/atomic/Typography/Title";
 import VideoListGrid from "@/components/composite/Analysis/VideoListGrid";
+import AppTopBar from "@/components/composite/Layout/AppTopBar";
 import {
   AnalysisResult,
   getAllRuns,
@@ -15,7 +15,7 @@ import { useIsFocused } from "@react-navigation/native";
 import React, { useCallback, useEffect, useState } from "react";
 import { StyleSheet, View } from "react-native";
 
-export default function ProfileScreen() {
+export default function AnalysisHistoryScreen() {
   const router = useRouter();
   const [videos, setVideos] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -90,7 +90,6 @@ export default function ProfileScreen() {
       });
       const ownRuns = currentUser ? runs.filter((run) => run.user_id === currentUser.id) : runs;
 
-      // Transform runs data to match VideoListGrid format
       const transformedVideos = ownRuns.map((run) => ({
         id: run.id.toString(),
         thumbnailUri:
@@ -121,27 +120,19 @@ export default function ProfileScreen() {
   }, [isFocused, fetchRuns]);
 
   const handleVideoSelect = (id: string) => {
-    console.log("[VideoClick] Selected video from profile", {
-      run_id: Number(id),
-      raw_id: id,
-      route: `/run/${id}`,
-      endpoint: "/analysis/get",
-      query: { run_id: Number(id) },
-    });
     router.push(`/run/${id}` as Href);
   };
 
   return (
     <ScreenContainer>
       <Column style={styles.content}>
+        <AppTopBar />
         <View style={styles.headerSection}>
-          <Title style={styles.title}>Your Videos</Title>
+          <Subtitle style={styles.title}>Your Videos</Subtitle>
           <Subtitle style={styles.subtitle}>
             View your uploaded videos and analysis history.
           </Subtitle>
         </View>
-
-        {/* Videos List */}
         <View style={styles.videosSection}>
           {loading ? (
             <View style={styles.loadingContainer}>
@@ -174,12 +165,11 @@ const styles = StyleSheet.create({
     paddingBottom: 24,
   },
   headerSection: {
-    paddingTop: 24,
     paddingHorizontal: 20,
     paddingBottom: 16,
   },
   title: {
-    fontSize: 28,
+    fontSize: 24,
     fontWeight: "700",
     color: "#0F172A",
     marginBottom: 8,

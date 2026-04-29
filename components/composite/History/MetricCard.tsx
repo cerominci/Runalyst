@@ -35,12 +35,14 @@ const MetricCard: React.FC<MetricCardProps> = ({
         {unit && <Text style={styles.unit}>{unit}</Text>}
       </View>
 
-      {trend !== "neutral" && trendText && (
+      {trend !== "neutral" && (
         <View style={styles.trendRow}>
           <Ionicons name={iconName} size={16} color={iconColor} />
-          <BodyText style={[styles.trendText, { color: iconColor }]}>
-            {trendText}
-          </BodyText>
+          {trendText ? (
+            <BodyText style={[styles.trendText, { color: iconColor }]}>
+              {trendText}
+            </BodyText>
+          ) : null}
         </View>
       )}
     </View>

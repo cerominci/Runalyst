@@ -205,6 +205,9 @@ export default function App() {
   const handleContinue = async () => {
     if (!uri) return;
 
+    // Ensure preview audio is muted during upload.
+    (player as any).pause?.();
+    (player as any).muted = true;
     setIsUploading(true);
 
     try {

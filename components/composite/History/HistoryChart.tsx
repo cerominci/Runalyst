@@ -5,6 +5,7 @@ import BodyText from "../../atomic/Typography/BodyText";
 import Subtitle from "../../atomic/Typography/Subtitle";
 
 export interface HistoryDataPoint {
+  id?: string;
   label: string; // örn: "Mon", "Run #3"
   value: number; // numeric metric
 }
@@ -40,10 +41,10 @@ const HistoryChart: React.FC<HistoryChartProps> = ({
       <BodyText style={styles.description}>{description}</BodyText>
 
       <View style={styles.chartArea}>
-        {data.map((point) => {
+        {data.map((point, index) => {
           const barHeight = (point.value / maxValue) * 120; // max 120 px
           return (
-            <View key={point.label} style={styles.barItem}>
+            <View key={point.id ?? `${point.label}-${index}`} style={styles.barItem}>
               <View style={[styles.bar, { height: barHeight }]} />
               <Text style={styles.barLabel} numberOfLines={1}>
                 {point.label}

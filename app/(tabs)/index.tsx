@@ -2,14 +2,14 @@ import PrimaryButton from "@/components/atomic/Button/PrimaryButton";
 import SecondaryButton from "@/components/atomic/Button/SecondaryButton";
 import Column from "@/components/atomic/Layout/Column";
 import ScreenContainer from "@/components/atomic/Layout/ScreenContainer";
-import ScrollScreen from "@/components/atomic/Layout/ScrollScreen";
 import Subtitle from "@/components/atomic/Typography/Subtitle";
 import Title from "@/components/atomic/Typography/Title";
 import HomeMenuButton from "@/components/composite/Home/HomeMenuButton";
+import AppTopBar from "@/components/composite/Layout/AppTopBar";
 import type { Href } from "expo-router";
 import { useRouter } from "expo-router";
 import React from "react";
-import { StyleSheet, View } from "react-native";
+import { ScrollView, StyleSheet, View } from "react-native";
 
 export default function HomeScreen() {
   const router = useRouter();
@@ -22,14 +22,18 @@ export default function HomeScreen() {
     router.push("/analysis" as Href);
   };
 
-  const handleProfilePress = () => {
-    router.push("/profile" as Href);
+  const handleAnalysisHistoryPress = () => {
+    router.push("/analysis-history" as Href);
   };
 
   return (
     <ScreenContainer>
-      <ScrollScreen contentContainerStyle={styles.contentContainer}>
+      <ScrollView
+        contentContainerStyle={styles.contentContainer}
+        showsVerticalScrollIndicator={false}
+      >
         <Column style={styles.content}>
+          <AppTopBar showBackButton={false} />
           {/* Welcome Section */}
           <View style={styles.welcomeSection}>
             <Title style={styles.welcomeTitle}>Hello, welcome back user!</Title>
@@ -42,10 +46,10 @@ export default function HomeScreen() {
           {/* Profile Section */}
           <View style={styles.profileSection}>
             <HomeMenuButton
-              title="View Profile"
+              title="View Analysis"
               description="See your uploaded videos and analysis history"
               icon="person-outline"
-              onPress={handleProfilePress}
+              onPress={handleAnalysisHistoryPress}
             />
           </View>
 
@@ -66,7 +70,7 @@ export default function HomeScreen() {
             />
           </View>
         </Column>
-      </ScrollScreen>
+      </ScrollView>
     </ScreenContainer>
   );
 }

@@ -165,6 +165,9 @@ export default function GalleryPressScreen() {
       return;
     }
 
+    // Ensure no audio keeps playing while upload starts.
+    (player as any).pause?.();
+    (player as any).muted = true;
     setIsUploading(true);
     setError(null);
     setSuccess(null);

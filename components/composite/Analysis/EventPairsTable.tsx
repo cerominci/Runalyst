@@ -14,6 +14,7 @@ const EventPairsTable: React.FC<EventPairsTableProps> = ({
   rows,
   initialVisible = 6,
 }) => {
+  const [open, setOpen] = useState(false);
   const [expanded, setExpanded] = useState(false);
   const visibleRows = useMemo(
     () => (expanded ? rows : rows.slice(0, initialVisible)),
@@ -25,25 +26,32 @@ const EventPairsTable: React.FC<EventPairsTableProps> = ({
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>{title}</Text>
-      <View style={styles.headerRow}>
-        <Text style={[styles.headerText, styles.frameColumn]}>Frame</Text>
-        <Text style={[styles.headerText, styles.degreeColumn]}>Degree</Text>
-      </View>
-      {visibleRows.map(([frame, degree], index) => (
-        <View key={`${title}-${frame}-${index}`} style={styles.row}>
-          <Text style={[styles.cellText, styles.frameColumn]}>{frame}</Text>
-          <Text style={[styles.cellText, styles.degreeColumn]}>
-            {Number(degree).toFixed(2)}
-          </Text>
-        </View>
-      ))}
-      {canExpand && (
-        <Pressable onPress={() => setExpanded((prev) => !prev)}>
-          <Text style={styles.expandText}>
-            {expanded ? "Show less" : `Show more (${rows.length - initialVisible} more)`}
-          </Text>
-        </Pressable>
+      <Pressable style={styles.topBar} onPress={() => setOpen((prev) => !prev)}>
+        <Text style={styles.title}>{title}</Text>
+        <Text style={styles.toggleIcon}>{open ? "▾" : "▸"}</Text>
+      </Pressable>
+      {!open ? null : (
+        <>
+          <View style={styles.headerRow}>
+            <Text style={[styles.headerText, styles.frameColumn]}>Frame</Text>
+            <Text style={[styles.headerText, styles.degreeColumn]}>Degree</Text>
+          </View>
+          {visibleRows.map(([frame, degree], index) => (
+            <View key={`${title}-${frame}-${index}`} style={styles.row}>
+              <Text style={[styles.cellText, styles.frameColumn]}>{frame}</Text>
+              <Text style={[styles.cellText, styles.degreeColumn]}>
+                {Number(degree).toFixed(2)}
+              </Text>
+            </View>
+          ))}
+          {canExpand && (
+            <Pressable onPress={() => setExpanded((prev) => !prev)}>
+              <Text style={styles.expandText}>
+                {expanded ? "Show less" : `Show more (${rows.length - initialVisible} more)`}
+              </Text>
+            </Pressable>
+          )}
+        </>
       )}
     </View>
   );
@@ -60,7 +68,17 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: "600",
     color: "#334155",
+  },
+  topBar: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     marginBottom: 8,
+  },
+  toggleIcon: {
+    color: "#64748B",
+    fontSize: 13,
+    fontWeight: "700",
   },
   headerRow: {
     flexDirection: "row",

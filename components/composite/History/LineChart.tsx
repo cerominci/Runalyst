@@ -1,6 +1,7 @@
 // components/composite/History/LineChart.tsx
 import React from "react";
 import { StyleSheet, Text, View } from "react-native";
+import Svg, { Circle, Line, Polyline, Text as SvgText } from "react-native-svg";
 import BodyText from "../../atomic/Typography/BodyText";
 import Subtitle from "../../atomic/Typography/Subtitle";
 
@@ -20,8 +21,10 @@ interface LineChartProps {
 }
 
 const CHART_HEIGHT = 200;
-const CHART_PADDING = 40;
-const CHART_WIDTH = 300; // Will be adjusted based on container
+const CHART_WIDTH = 330;
+const CHART_PADDING_X = 34;
+const CHART_PADDING_TOP = 16;
+const CHART_PADDING_BOTTOM = 28;
 
 const LineChart: React.FC<LineChartProps> = ({
   title = "Metrics Over Time",
@@ -39,16 +42,13 @@ const LineChart: React.FC<LineChartProps> = ({
     );
   }
 
-  // Get all metrics to show, or just the selected one
-  const metricsToShow = selectedMetric
-    ? [selectedMetric]
-    : ["cadence", "strideLength", "groundContact", "verticalOscillation"];
-
-  // Calculate max values for normalization
-  const maxCadence = Math.max(...data.map((d) => d.cadence)) || 1;
-  const maxStride = Math.max(...data.map((d) => d.strideLength)) || 1;
-  const maxGroundContact = Math.max(...data.map((d) => d.groundContact)) || 1;
-  const maxVerticalOsc = Math.max(...data.map((d) => d.verticalOscillation)) || 1;
+  const metricKey = selectedMetric ?? "cadence";
+  const values = data.map((point) => {
+    if (metricKey === "strideLength") return point.strideLength;
+    if (metricKey === "groundContact") return point.groundContact;
+    if (metricKey === "verticalOscillation") return point.verticalOscillation;
+    return point.cadence;
+  });
 
   const colors = {
     cadence: "#3B82F6",
@@ -71,154 +71,125 @@ const LineChart: React.FC<LineChartProps> = ({
     verticalOscillation: "Vertical Oscillation",
   };
 
-  // Calculate points for each metric
-  const getPoints = (metric: string) => {
-    const maxValue =
-      metric === "cadence"
-        ? maxCadence
-        : metric === "strideLength"
-        ? maxStride
-        : metric === "groundContact"
-        ? maxGroundContact
-        : maxVerticalOsc;
+  const label = labels[metricKey];
+  const unit = units[metricKey];
+  const color = colors[metricKey];
 
-    return data.map((point, index) => {
-      const value =
-        metric === "cadence"
-          ? point.cadence
-          : metric === "strideLength"
-          ? point.strideLength
-          : metric === "groundContact"
-          ? point.groundContact
-          : point.verticalOscillation;
+  const maxValue = Math.max(...values);
+  const minValue = Math.min(...values);
+  const range = Math.max(maxValue - minValue, 1);
+  const plotWidth = CHART_WIDTH - CHART_PADDING_X * 2;
+  const plotHeight = CHART_HEIGHT - CHART_PADDING_TOP - CHART_PADDING_BOTTOM;
 
-      const x = (index / (data.length - 1 || 1)) * (CHART_WIDTH - CHART_PADDING * 2) + CHART_PADDING;
-      const y =
-        CHART_HEIGHT - CHART_PADDING - (value / maxValue) * (CHART_HEIGHT - CHART_PADDING * 2);
-      return { x, y, value };
-    });
-  };
-
-  // Simple line chart using View components (fallback if SVG not available)
-  const renderSimpleChart = () => {
-    return (
-      <View style={styles.simpleChartContainer}>
-        {metricsToShow.map((metric) => {
-          const points = getPoints(metric);
-          const maxValue =
-            metric === "cadence"
-              ? maxCadence
-              : metric === "strideLength"
-              ? maxStride
-              : metric === "groundContact"
-              ? maxGroundContact
-              : maxVerticalOsc;
-
-          return (
-            <View key={metric} style={styles.metricLine}>
-              <View style={styles.metricHeader}>
-                <View
-                  style={[styles.colorIndicator, { backgroundColor: colors[metric as keyof typeof colors] }]}
-                />
-                <Text style={styles.metricLabel}>
-                  {labels[metric as keyof typeof labels]} ({units[metric as keyof typeof units]})
-                </Text>
-              </View>
-              <View style={styles.chartContainer}>
-                {/* Y-axis labels */}
-                <View style={styles.yAxis}>
-                  <Text style={styles.axisLabel}>{Math.round(maxValue)}</Text>
-                  <Text style={styles.axisLabel}>{Math.round(maxValue / 2)}</Text>
-                  <Text style={styles.axisLabel}>0</Text>
-                </View>
-
-                {/* Chart area */}
-                <View style={styles.chartArea}>
-                  {/* Grid lines */}
-                  <View style={styles.gridLine} />
-                  <View style={[styles.gridLine, { top: "50%" }]} />
-                  <View style={[styles.gridLine, { bottom: 0 }]} />
-
-                  {/* Line path and data points */}
-                  <View style={styles.lineContainer}>
-                    {points.map((point, index) => {
-                      if (index === 0) {
-                        // First point - just render the circle
-                        return (
-                          <View
-                            key={index}
-                            style={[
-                              styles.dataPoint,
-                              {
-                                left: point.x - CHART_PADDING - 4,
-                                top: point.y - 4,
-                                backgroundColor: colors[metric as keyof typeof colors],
-                              },
-                            ]}
-                          />
-                        );
-                      }
-
-                      const prevPoint = points[index - 1];
-                      const dx = point.x - prevPoint.x;
-                      const dy = point.y - prevPoint.y;
-                      const distance = Math.sqrt(dx * dx + dy * dy);
-                      const angle = Math.atan2(dy, dx) * (180 / Math.PI);
-
-                      return (
-                        <React.Fragment key={index}>
-                          {/* Line segment */}
-                          <View
-                            style={[
-                              styles.lineSegment,
-                              {
-                                left: prevPoint.x - CHART_PADDING,
-                                top: prevPoint.y - 1,
-                                width: distance,
-                                height: 2.5,
-                                transform: [{ rotate: `${angle}deg` }],
-                                backgroundColor: colors[metric as keyof typeof colors],
-                              },
-                            ]}
-                          />
-                          {/* Data point */}
-                          <View
-                            style={[
-                              styles.dataPoint,
-                              {
-                                left: point.x - CHART_PADDING - 4,
-                                top: point.y - 4,
-                                backgroundColor: colors[metric as keyof typeof colors],
-                              },
-                            ]}
-                          />
-                        </React.Fragment>
-                      );
-                    })}
-                  </View>
-
-                  {/* X-axis labels */}
-                  <View style={styles.xAxis}>
-                    {data.map((point, index) => (
-                      <Text key={index} style={styles.xAxisLabel}>
-                        {point.date}
-                      </Text>
-                    ))}
-                  </View>
-                </View>
-              </View>
-            </View>
-          );
-        })}
-      </View>
-    );
-  };
+  const points = values.map((value, index) => {
+    const x = CHART_PADDING_X + (index / Math.max(values.length - 1, 1)) * plotWidth;
+    const y =
+      CHART_PADDING_TOP + ((maxValue - value) / range) * plotHeight;
+    return { x, y, value };
+  });
+  const polylinePoints = points.map((point) => `${point.x},${point.y}`).join(" ");
 
   return (
     <View style={styles.card}>
       <Subtitle>{title}</Subtitle>
       <BodyText style={styles.description}>{description}</BodyText>
-      {renderSimpleChart()}
+      <View style={styles.metricHeader}>
+        <View style={[styles.colorIndicator, { backgroundColor: color }]} />
+        <Text style={styles.metricLabel}>
+          {label} ({unit})
+        </Text>
+      </View>
+      <View style={styles.chartWrapper}>
+        <Svg width={CHART_WIDTH} height={CHART_HEIGHT}>
+          <Line
+            x1={CHART_PADDING_X}
+            y1={CHART_PADDING_TOP}
+            x2={CHART_PADDING_X}
+            y2={CHART_HEIGHT - CHART_PADDING_BOTTOM}
+            stroke="#CBD5E1"
+            strokeWidth={1}
+          />
+          <Line
+            x1={CHART_PADDING_X}
+            y1={CHART_HEIGHT - CHART_PADDING_BOTTOM}
+            x2={CHART_WIDTH - CHART_PADDING_X}
+            y2={CHART_HEIGHT - CHART_PADDING_BOTTOM}
+            stroke="#CBD5E1"
+            strokeWidth={1}
+          />
+          <Line
+            x1={CHART_PADDING_X}
+            y1={CHART_PADDING_TOP}
+            x2={CHART_WIDTH - CHART_PADDING_X}
+            y2={CHART_PADDING_TOP}
+            stroke="#E2E8F0"
+            strokeWidth={1}
+            strokeDasharray="4 4"
+          />
+          <Line
+            x1={CHART_PADDING_X}
+            y1={CHART_PADDING_TOP + plotHeight / 2}
+            x2={CHART_WIDTH - CHART_PADDING_X}
+            y2={CHART_PADDING_TOP + plotHeight / 2}
+            stroke="#E2E8F0"
+            strokeWidth={1}
+            strokeDasharray="4 4"
+          />
+          <Polyline
+            points={polylinePoints}
+            fill="none"
+            stroke={color}
+            strokeWidth={3}
+            strokeLinejoin="round"
+            strokeLinecap="round"
+          />
+          {points.map((point, index) => (
+            <Circle
+              key={`${metricKey}-${index}`}
+              cx={point.x}
+              cy={point.y}
+              r={3.5}
+              fill={color}
+              stroke="#FFFFFF"
+              strokeWidth={1.2}
+            />
+          ))}
+          <SvgText x={4} y={CHART_PADDING_TOP + 4} fontSize={10} fill="#64748B">
+            {maxValue.toFixed(1)}
+          </SvgText>
+          <SvgText
+            x={4}
+            y={CHART_PADDING_TOP + plotHeight / 2 + 4}
+            fontSize={10}
+            fill="#64748B"
+          >
+            {(maxValue - range / 2).toFixed(1)}
+          </SvgText>
+          <SvgText
+            x={4}
+            y={CHART_HEIGHT - CHART_PADDING_BOTTOM + 4}
+            fontSize={10}
+            fill="#64748B"
+          >
+            {minValue.toFixed(1)}
+          </SvgText>
+          {data.map((point, index) => {
+            const x = CHART_PADDING_X + (index / Math.max(data.length - 1, 1)) * plotWidth;
+            return (
+              <SvgText
+                key={`${point.date}-${index}`}
+                x={x}
+                y={CHART_HEIGHT - 8}
+                fontSize={9}
+                fill="#64748B"
+                textAnchor="middle"
+              >
+                {point.date}
+              </SvgText>
+            );
+          })}
+        </Svg>
+      </View>
     </View>
   );
 };
@@ -247,12 +218,6 @@ const styles = StyleSheet.create({
     color: "#9CA3AF",
     fontSize: 14,
   },
-  simpleChartContainer: {
-    marginTop: 8,
-  },
-  metricLine: {
-    marginBottom: 32,
-  },
   metricHeader: {
     flexDirection: "row",
     alignItems: "center",
@@ -269,68 +234,9 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     color: "#1E293B",
   },
-  chartContainer: {
-    flexDirection: "row",
-    height: CHART_HEIGHT,
-  },
-  yAxis: {
-    width: 35,
-    justifyContent: "space-between",
-    paddingRight: 8,
-  },
-  axisLabel: {
-    fontSize: 10,
-    color: "#6B7280",
-  },
-  chartArea: {
-    flex: 1,
-    position: "relative",
-    paddingLeft: 8,
-  },
-  gridLine: {
-    position: "absolute",
-    left: 0,
-    right: 0,
-    height: 1,
-    backgroundColor: "#E5E7EB",
-    opacity: 0.5,
-  },
-  lineContainer: {
-    position: "absolute",
-    left: 0,
-    right: 0,
-    top: 0,
-    bottom: 30,
-  },
-  lineSegment: {
-    position: "absolute",
-    height: 2.5,
-    borderRadius: 1.25,
-    zIndex: 1,
-  },
-  dataPoint: {
-    position: "absolute",
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    borderWidth: 2,
-    borderColor: "#FFFFFF",
-    zIndex: 2,
-  },
-  xAxis: {
-    position: "absolute",
-    bottom: 0,
-    left: 0,
-    right: 0,
-    flexDirection: "row",
-    justifyContent: "space-between",
-    paddingHorizontal: 4,
-  },
-  xAxisLabel: {
-    fontSize: 9,
-    color: "#6B7280",
-    textAlign: "center",
-    flex: 1,
+  chartWrapper: {
+    marginTop: 4,
+    alignItems: "center",
   },
 });
 
