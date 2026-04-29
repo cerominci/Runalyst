@@ -77,6 +77,8 @@ def get_run_analysis(db: Session, *, run_id: int, user_id: int) -> AnalysisOut:
 
     logger.info(f"result.owner.id: {result.owner.id}")
     logger.info(f"result.owner.user_id: {result.owner.user_id}")
+    logger.info(f"DEBUG TYPE - result.owner.user_id: {type(result.owner.user_id)}")
+    logger.info(f"DEBUG TYPE - user_id: {type(user_id)}")
     if result.owner.user_id != user_id:
         logger.error(f"Unauthorized access: User {user_id} tried to access analysis for run {run_id}")
         raise HTTPException(
