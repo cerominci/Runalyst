@@ -1,10 +1,11 @@
 import PrimaryButton from "@/components/atomic/Button/PrimaryButton";
 import LoadingSpinner from "@/components/atomic/Feedback/LoadingSpinner";
 import { login, loginWithApple, register } from "@/utils/endpoints";
+import { LICENSE_AGREEMENT_TEXT } from "@/constants/licenseAgreement";
 import * as AppleAuthentication from "expo-apple-authentication";
 import { useRouter } from "expo-router";
 import { useState } from "react";
-import { Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 
 export default function SignUpPage() {
   const router = useRouter();
@@ -12,6 +13,8 @@ export default function SignUpPage() {
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showLicenseModal, setShowLicenseModal] = useState(false);
+
   const handleAppleSignUp = async () => {
     setIsLoading(true);
     setError(null);
@@ -38,7 +41,7 @@ export default function SignUpPage() {
     }
   };
 
-  const handleSignUp = async () => {
+  const handleSignUp = () => {
     // Validation
     if (!email.trim()) {
       setError("Please enter your email");
@@ -61,19 +64,21 @@ export default function SignUpPage() {
       return;
     }
 
+    setShowLicenseModal(true);
+  };
+
+  const confirmSignUp = async () => {
+    setShowLicenseModal(false);
     setIsLoading(true);
     setError(null);
 
     try {
-      // Register the user
       const registerResult = await register(email.trim(), password);
       console.log("Registration successful:", registerResult);
       
-      // Automatically login after successful registration
       const loginResult = await login(email.trim(), password);
       console.log("Auto-login successful:", loginResult);
       
-      // Navigate to profile page to complete profile
       router.replace("/profile");
     } catch (err: any) {
       console.error("Signup error:", err);
@@ -151,6 +156,51 @@ export default function SignUpPage() {
             disabled={isLoading}
           />
         )}
+
+        <Modal
+  visible={showLicenseModal}
+  transparent
+  animationType="fade"
+  onRequestClose={() => setShowLicenseModal(false)}
+>
+  <View style={styles.modalBackdrop}>
+    <Pressable
+      style={StyleSheet.absoluteFill}
+      onPress={() => setShowLicenseModal(false)}
+    />
+
+    <View style={styles.modalCard}>
+      <Text style={styles.modalTitle}>License Agreement</Text>
+
+      <ScrollView
+        style={styles.modalContent}
+        contentContainerStyle={styles.modalContentContainer}
+        showsVerticalScrollIndicator={true}
+        nestedScrollEnabled={true}
+      >
+        <Text style={styles.modalText}>{LICENSE_AGREEMENT_TEXT}</Text>
+      </ScrollView>
+
+      <View style={styles.modalActions}>
+        <TouchableOpacity
+          style={[styles.modalButton, styles.modalDeclineButton]}
+          onPress={() => setShowLicenseModal(false)}
+          disabled={isLoading}
+        >
+          <Text style={styles.modalDeclineText}>Decline</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.modalButton, styles.modalAgreeButton]}
+          onPress={confirmSignUp}
+          disabled={isLoading}
+        >
+          <Text style={styles.modalAgreeText}>Agree & Continue</Text>
+        </TouchableOpacity>
+      </View>
+    </View>
+  </View>
+</Modal>
 
         {isLoading && (
           <View style={styles.loadingContainer}>
@@ -244,6 +294,67 @@ const styles = StyleSheet.create({
   loadingContainer: {
     alignItems: "center",
     marginTop: 16,
+  },
+  modalBackdrop: {
+  flex: 1,
+  backgroundColor: "rgba(0,0,0,0.45)",
+  alignItems: "center",
+  justifyContent: "center",
+  padding: 20,
+},
+
+modalCard: {
+  width: "100%",
+  maxWidth: 420,
+  maxHeight: "80%",
+  borderRadius: 18,
+  backgroundColor: "#FFFFFF",
+  padding: 20,
+},
+
+modalContent: {
+  height: 280,
+  marginBottom: 20,
+},
+
+modalContentContainer: {
+  paddingBottom: 16,
+},
+modalTitle: {
+  fontSize: 20,
+  fontWeight: "800",
+  color: "#0F172A",
+  marginBottom: 12,
+},
+modalText: {
+  fontSize: 14,
+  color: "#334155",
+  lineHeight: 22,
+},
+  modalActions: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+  },
+  modalButton: {
+    flex: 1,
+    borderRadius: 14,
+    paddingVertical: 14,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  modalDeclineButton: {
+    backgroundColor: "#E2E8F0",
+  },
+  modalAgreeButton: {
+    backgroundColor: "#2563EB",
+  },
+  modalDeclineText: {
+    color: "#334155",
+    fontWeight: "700",
+  },
+  modalAgreeText: {
+    color: "#FFFFFF",
+    fontWeight: "700",
   },
   bottomLink: { marginTop: 30, alignItems: "center" },
   bottomLinkText: { fontSize: 15, color: "#475569" },
