@@ -87,11 +87,11 @@ def calculate_overstride_at_contact(
         mean_osi = float(np.mean([o["overstride_index_deg"] for o in output]))
 
         if mean_osi >= 10:
-            comment = "Belirgin overstride eğilimi."
+            comment = "Overstride."
         elif mean_osi >= 5:
-            comment = "Hafif overstride eğilimi."
+            comment = "Mild overstride."
         else:
-            comment = "Stride kabul edilebilir / iyi."
+            comment = "Acceptable stride."
     else:
         mean_alpha = None
         mean_lean = None

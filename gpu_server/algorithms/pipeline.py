@@ -220,7 +220,7 @@ def run_full_pipeline(
             print(f"    ✗ Knee flexion analysis error: {e}")
 
     # ── MODULE 7: Alpers Overstride Analysis ────────────────────────────────────
-    desc_alpers = "Calculates the precise overstride index in degrees, integrating the alpha angle(angle between ground normal and leg, leg is pelvis to foot line) and forward lean to assess if the foot lands too far ahead of the center of mass."
+    desc_alpers = "Calculates the precise overstride index in degrees, integrating the alpha angle(angle between ground normal and leg, leg is pelvis to foot line) and forward lean to assess if the foot lands too far ahead of the center of mass. index>10 meand overstride , >5 is mild overstride, and less than 5 is acceptable."
     if verbose:
         print("  [7/7] Running overstride_metric_2_analysis...")
     try:

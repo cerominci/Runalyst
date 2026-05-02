@@ -5,17 +5,20 @@ import uuid
 import boto3
 import requests
 from supabase import create_client
-from gpu_server.algorithms.pipeline import run_full_pipeline
+from algorithms.pipeline import run_full_pipeline
 from process_video import process_video
+from dotenv import load_dotenv
+load_dotenv()
 
 SQS_QUEUE_URL = os.environ.get("SQS_QUEUE_URL")
 AWS_REGION = os.environ.get("AWS_REGION", "us-east-1")
 
 SUPABASE_URL = os.environ.get("SUPABASE_URL")
-SUPABASE_KEY = os.environ.get("SUPABASE_SERVICE_ROLE_KEY")
+SUPABASE_KEY = os.environ.get("SUPABASE_SERVICE_KEY")
 bucket_name = "user_videos_test"
-
-BACKEND_SAVE_URL = "https://runalyst-backend-2xbs.onrender.com/analysis/save-result"
+GPU_API_KEY = os.environ.get("GPU_API_KEY")
+BACKEND_SAVE_URL = os.environ.get("BACKEND_SAVE_URL")
+#BACKEND_SAVE_URL = "https://runalyst-backend-2xbs.onrender.com/analysis/save-result"
 
 sqs = boto3.client("sqs", region_name=AWS_REGION)
 supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
@@ -45,7 +48,9 @@ def main():
         )
 
         messages = response.get("Messages", [])
+
         if not messages:
+            print("No messages yet")
             continue
 
         for message in messages:
@@ -67,13 +72,19 @@ def main():
                 if not os.path.exists(local_filename):
                     raise FileNotFoundError(f"Failed to download video to {local_filename}")
 
-                nlf_output_path,fps_of_video = process_video(local_filename)
-                analysis_results = run_full_pipeline(path=nlf_output_path, label="Runner", fps=fps_of_video, output_dir="pipeline_output", verbose=True, save_plots=False)
+                print(f"Download done, processing {video_path}...")
 
-                analysis_results["run_id"] = run_id
+                nlf_output_path,fps_of_video = process_video(local_filename)
+                analysis_results_with_metadata = run_full_pipeline(path=nlf_output_path, label="Runner", fps=fps_of_video, output_dir="pipeline_output", verbose=True, save_plots=False)
+
+                analysis_results = {
+                    "run_id": run_id,
+                    "fps": analysis_results_with_metadata["metadata"]["fps"],
+                    "modules": analysis_results_with_metadata["modules"]
+                }
 
                 print(f" Sending results to backend for Run {run_id}...")
-                resp = requests.post(BACKEND_SAVE_URL, json=analysis_results)
+                resp = requests.post(BACKEND_SAVE_URL, json=analysis_results, headers={"X-GPU-API-Key": GPU_API_KEY})
 
                 if resp.status_code in [200, 201]:
                     print("Success! Deleting message from SQS.")
