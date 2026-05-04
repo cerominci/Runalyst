@@ -1,9 +1,12 @@
+import GoogleButton from "@/components/atomic/Button/GoogleButton";
 import PrimaryButton from "@/components/atomic/Button/PrimaryButton";
 import LoadingSpinner from "@/components/atomic/Feedback/LoadingSpinner";
-import { login, loginWithApple } from "@/utils/endpoints";
+import { login, loginWithApple, loginWithGoogle } from "@/utils/endpoints";
 import * as AppleAuthentication from "expo-apple-authentication";
+import * as Google from "expo-auth-session/providers/google";
 import { useRouter } from "expo-router";
-import { useState } from "react";
+import * as WebBrowser from "expo-web-browser";
+import { useEffect, useState } from "react";
 import {
   Platform,
   StyleSheet,
@@ -13,6 +16,8 @@ import {
   View,
 } from "react-native";
 
+WebBrowser.maybeCompleteAuthSession();
+
 export default function SignInPage() {
   const router = useRouter();
   const POST_LOGIN_ROUTE = "/(tabs)" as const;
@@ -20,6 +25,50 @@ export default function SignInPage() {
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const [googleRequest, googleResponse, googlePromptAsync] = Google.useAuthRequest({
+    androidClientId: process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID,
+    iosClientId: process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID,
+    webClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
+  });
+
+  useEffect(() => {
+    (async () => {
+      if (!googleResponse) return;
+      if (googleResponse.type === "success") {
+        const idToken = googleResponse.authentication?.idToken;
+        if (!idToken) {
+          setError("Google Sign-In did not return an ID token.");
+          setIsLoading(false);
+          return;
+        }
+        try {
+          await loginWithGoogle(idToken);
+          router.replace(POST_LOGIN_ROUTE);
+        } catch (err: any) {
+          setError(err?.message ?? "Google Sign-In failed.");
+        } finally {
+          setIsLoading(false);
+        }
+      } else if (googleResponse.type === "dismiss" || googleResponse.type === "cancel") {
+        setIsLoading(false);
+      } else if (googleResponse.type === "error") {
+        setError("Google Sign-In failed.");
+        setIsLoading(false);
+      }
+    })();
+  }, [googleResponse]);
+
+  const handleGoogleSignIn = async () => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      await googlePromptAsync();
+    } catch (err: any) {
+      setError(err?.message ?? "Google Sign-In failed.");
+      setIsLoading(false);
+    }
+  };
 
   const handleAppleSignIn = async () => {
     setIsLoading(true);
@@ -153,6 +202,10 @@ export default function SignInPage() {
           disabled={isLoading}
         />
       )}
+      <GoogleButton
+        onPress={handleGoogleSignIn}
+        style={styles.googleButton}
+      />
 
       {isLoading && (
         <View style={styles.loadingContainer}>
@@ -203,6 +256,7 @@ const styles = StyleSheet.create({
   },
   button: { marginTop: 10, paddingVertical: 16 },
   appleButton: { marginTop: 12, paddingVertical: 16 },
+  googleButton: { marginTop: 12 },
   loadingContainer: {
     alignItems: "center",
     marginTop: 16,

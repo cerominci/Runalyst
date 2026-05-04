@@ -200,6 +200,23 @@ export async function login(email: string, password: string): Promise<AuthTokenR
   };
 }
 
+export async function loginWithGoogle(idToken: string): Promise<AuthTokenResponse> {
+  const data = await requestPublic<AuthTokenResponse>(
+    "/auth/google",
+    {
+      method: "POST",
+      body: JSON.stringify({ token: idToken }),
+    },
+    "Google sign-in failed",
+  );
+  if (!data.access_token) throw new Error("No access_token received from server");
+  await setStoredToken(data.access_token);
+  return {
+    access_token: data.access_token,
+    token_type: data.token_type ?? "bearer",
+  };
+}
+
 export async function loginWithApple(payload: AppleLoginPayload | string): Promise<AuthTokenResponse> {
   const normalized = typeof payload === "string" ? { identityToken: payload } : payload;
   const data = await requestPublic<AuthTokenResponse>(
