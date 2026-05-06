@@ -12,3 +12,5 @@ nlf_outputs
 pipeline_output
 results
 __pycache__
+
+venv
