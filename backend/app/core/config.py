@@ -20,6 +20,10 @@ class Settings(BaseSettings):
     # GPU Server
     GPU_API_KEY: str
 
+    # LLM Chat
+    OLLAMA_BASE_URL: str = "http://localhost:11434"
+    OLLAMA_MODEL: str = "qwen3.5:9b"
+
     # App Configuration
     APP_ENV: str = "development"
     DEBUG: bool = False
