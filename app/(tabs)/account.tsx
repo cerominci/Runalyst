@@ -4,11 +4,11 @@ import ScreenContainer from "@/components/atomic/Layout/ScreenContainer";
 import Subtitle from "@/components/atomic/Typography/Subtitle";
 import AppTopBar from "@/components/composite/Layout/AppTopBar";
 import { Profile } from "@/constants/types";
-import { getMyProfile } from "@/utils/endpoints";
+import { getMyProfile, logout } from "@/utils/endpoints";
 import { useRouter } from "expo-router";
 import { useIsFocused } from "@react-navigation/native";
 import React, { useCallback, useEffect, useState } from "react";
-import { StyleSheet, View } from "react-native";
+import { Alert, StyleSheet, TouchableOpacity, View } from "react-native";
 
 export default function AccountScreen() {
   const router = useRouter();
@@ -52,6 +52,20 @@ export default function AccountScreen() {
 
   const handleUpdateProfile = () => {
     router.push({ pathname: "/profile", params: { mode: "update" } });
+  };
+
+  const handleLogout = () => {
+    Alert.alert("Log Out", "Are you sure you want to log out?", [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Log Out",
+        style: "destructive",
+        onPress: async () => {
+          await logout();
+          router.replace("/start");
+        },
+      },
+    ]);
   };
 
   return (
@@ -117,6 +131,10 @@ export default function AccountScreen() {
             </View>
           )}
         </View>
+
+        <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
+          <Subtitle style={styles.logoutText}>Log Out</Subtitle>
+        </TouchableOpacity>
       </Column>
     </ScreenContainer>
   );
@@ -196,5 +214,19 @@ const styles = StyleSheet.create({
   updateButton: {
     marginTop: 8,
     width: "100%",
+  },
+  logoutButton: {
+    marginHorizontal: 20,
+    marginBottom: 12,
+    paddingVertical: 14,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: "#FCA5A5",
+    alignItems: "center",
+  },
+  logoutText: {
+    color: "#EF4444",
+    fontSize: 16,
+    fontWeight: "600",
   },
 });

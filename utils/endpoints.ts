@@ -2,14 +2,19 @@ import { Profile, ProfileUpdateIn } from "@/constants/types";
 import * as FileSystem from "expo-file-system/legacy";
 import * as SecureStore from "expo-secure-store";
 import { Platform } from "react-native";
+import { cacheClear, cacheGet, cacheInvalidate, cacheSet } from "./cache";
 
 const API_BASE_URL = "https://runalyst-backend-2xbs.onrender.com";
 const TOKEN_STORAGE_KEY = "runalyst_auth_token";
+const REFRESH_TOKEN_STORAGE_KEY = "runalyst_refresh_token";
 
 type ApiErrorBody = Record<string, unknown> | null;
 
+let refreshPromise: Promise<string | null> | null = null;
+
 export type AuthTokenResponse = {
   access_token: string;
+  refresh_token: string;
   token_type: string;
 };
 
@@ -194,8 +199,10 @@ export async function login(email: string, password: string): Promise<AuthTokenR
   );
   if (!data.access_token) throw new Error("No access_token received from server");
   await setStoredToken(data.access_token);
+  if (data.refresh_token) await setStoredRefreshToken(data.refresh_token);
   return {
     access_token: data.access_token,
+    refresh_token: data.refresh_token,
     token_type: data.token_type ?? "bearer",
   };
 }
@@ -211,8 +218,10 @@ export async function loginWithGoogle(idToken: string): Promise<AuthTokenRespons
   );
   if (!data.access_token) throw new Error("No access_token received from server");
   await setStoredToken(data.access_token);
+  if (data.refresh_token) await setStoredRefreshToken(data.refresh_token);
   return {
     access_token: data.access_token,
+    refresh_token: data.refresh_token,
     token_type: data.token_type ?? "bearer",
   };
 }
@@ -236,8 +245,10 @@ export async function loginWithApple(payload: AppleLoginPayload | string): Promi
   );
   if (!data.access_token) throw new Error("No access_token received from server");
   await setStoredToken(data.access_token);
+  if (data.refresh_token) await setStoredRefreshToken(data.refresh_token);
   return {
     access_token: data.access_token,
+    refresh_token: data.refresh_token,
     token_type: data.token_type ?? "bearer",
   };
 }
@@ -248,7 +259,18 @@ export async function getToken(): Promise<string | null> {
 }
 
 export async function logout(): Promise<void> {
+  const refreshToken = await getStoredRefreshToken();
+  if (refreshToken) {
+    // Fire-and-forget: revoke on backend, don't block local logout
+    fetch(`${API_BASE_URL}/auth/logout`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ refresh_token: refreshToken }),
+    }).catch(() => {});
+  }
   await deleteStoredToken();
+  await deleteStoredRefreshToken();
+  await cacheClear();
 }
 
 export async function isAuthenticated(): Promise<boolean> {
@@ -257,18 +279,25 @@ export async function isAuthenticated(): Promise<boolean> {
 
 // Public API: profiles
 export async function getMyProfile(): Promise<Profile | null> {
+  const cached = await cacheGet<Profile | null>("profile:me");
+  if (cached !== undefined) return cached;
   try {
-    return await requestAuth<Profile>("/profiles/me", { method: "GET" }, "Failed to load profile");
+    const data = await requestAuth<Profile>("/profiles/me", { method: "GET" }, "Failed to load profile");
+    await cacheSet("profile:me", data);
+    return data;
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     const noProfileYet = /404\b/.test(message) || /profile not found/i.test(message) || /complete onboarding/i.test(message);
-    if (noProfileYet) return null;
+    if (noProfileYet) {
+      await cacheSet("profile:me", null);
+      return null;
+    }
     throw error;
   }
 }
 
 export async function updateProfile(profileData: ProfileUpdateIn): Promise<Profile> {
-  return requestAuth<Profile>(
+  const result = await requestAuth<Profile>(
     "/profiles/me",
     {
       method: "PATCH",
@@ -276,6 +305,8 @@ export async function updateProfile(profileData: ProfileUpdateIn): Promise<Profi
     },
     "Failed to update profile",
   );
+  await cacheSet("profile:me", result);
+  return result;
 }
 
 // Public API: runs
@@ -328,7 +359,7 @@ export async function binaryUpload(
 }
 
 export async function createRunRecord(video_path: string, title: string): Promise<Run> {
-  return requestAuth<Run>(
+  const result = await requestAuth<Run>(
     "/runs/create-record",
     {
       method: "POST",
@@ -336,39 +367,61 @@ export async function createRunRecord(video_path: string, title: string): Promis
     },
     "Failed to create run record",
   );
+  await cacheInvalidate("runs:all", "analysis:history");
+  return result;
 }
 
 export async function getAllRuns(): Promise<Run[]> {
+  const cached = await cacheGet<Run[]>("runs:all");
+  if (cached !== undefined) return cached;
   const payload = await requestAuth<RunsResponse>("/runs/all", { method: "GET" }, "Failed to fetch runs");
-  if (Array.isArray(payload)) return payload;
-  if (payload && typeof payload === "object") {
-    if (Array.isArray(payload.runs)) return payload.runs;
-    if (payload.runs && typeof payload.runs === "object") {
-      const mappedRuns = Object.values(payload.runs as Record<string, unknown>).filter(
+  let runs: Run[];
+  if (Array.isArray(payload)) {
+    runs = payload;
+  } else if (payload && typeof payload === "object") {
+    if (Array.isArray(payload.runs)) {
+      runs = payload.runs;
+    } else if (payload.runs && typeof payload.runs === "object") {
+      runs = Object.values(payload.runs as Record<string, unknown>).filter(
         (item): item is Run => !!item && typeof item === "object",
       );
-      return mappedRuns;
+    } else if (Array.isArray(payload.data)) {
+      runs = payload.data;
+    } else if (Array.isArray(payload.items)) {
+      runs = payload.items;
+    } else if (Array.isArray(payload.results)) {
+      runs = payload.results;
+    } else {
+      const preview = JSON.stringify(payload).slice(0, 400);
+      throw new Error(`Unexpected /runs/all response shape: ${preview}`);
     }
-    if (Array.isArray(payload.data)) return payload.data;
-    if (Array.isArray(payload.items)) return payload.items;
-    if (Array.isArray(payload.results)) return payload.results;
-    const preview = JSON.stringify(payload).slice(0, 400);
-    throw new Error(`Unexpected /runs/all response shape: ${preview}`);
+  } else {
+    throw new Error("Unexpected /runs/all response: empty or non-JSON payload");
   }
-  throw new Error("Unexpected /runs/all response: empty or non-JSON payload");
+  await cacheSet("runs:all", runs);
+  return runs;
 }
 
 export async function getRun(runId: number): Promise<Run> {
-  return requestAuth<Run>(`/runs/get?run_id=${encodeURIComponent(String(runId))}`, { method: "GET" }, "Failed to fetch run");
+  const key = `run:${runId}`;
+  const cached = await cacheGet<Run>(key);
+  if (cached !== undefined) return cached;
+  const data = await requestAuth<Run>(`/runs/get?run_id=${encodeURIComponent(String(runId))}`, { method: "GET" }, "Failed to fetch run");
+  await cacheSet(key, data);
+  return data;
 }
 
 // Public API: users
 export async function getCurrentUser(): Promise<User> {
-  return requestAuth<User>("/users/me", { method: "GET" }, "Failed to fetch current user");
+  const cached = await cacheGet<User>("user:me");
+  if (cached !== undefined) return cached;
+  const data = await requestAuth<User>("/users/me", { method: "GET" }, "Failed to fetch current user");
+  await cacheSet("user:me", data);
+  return data;
 }
 
 export async function updateCurrentUser(payload: UserUpdateIn): Promise<User> {
-  return requestAuth<User>(
+  const result = await requestAuth<User>(
     "/users/me",
     {
       method: "PATCH",
@@ -376,23 +429,52 @@ export async function updateCurrentUser(payload: UserUpdateIn): Promise<User> {
     },
     "Failed to update current user",
   );
+  await cacheSet("user:me", result);
+  return result;
 }
 
 export async function deleteCurrentUser(): Promise<void> {
   await requestAuth<void>("/users/me", { method: "DELETE" }, "Failed to delete account");
+  await cacheClear();
+}
+
+// Public API: email verification
+export async function sendVerificationEmail(email: string): Promise<void> {
+  await requestPublic<{ detail: string }>(
+    "/auth/send-verification-email",
+    { method: "POST", body: JSON.stringify({ email }) },
+    "Failed to send verification email",
+  );
+}
+
+export async function verifyEmail(email: string, code: string): Promise<void> {
+  await requestPublic<{ detail: string }>(
+    "/auth/verify-email",
+    { method: "POST", body: JSON.stringify({ email, code }) },
+    "Invalid or expired verification code",
+  );
 }
 
 // Public API: analysis
 export async function getAnalysis(runId: number): Promise<AnalysisResult> {
-  return requestAuth<AnalysisResult>(
+  const key = `analysis:${runId}`;
+  const cached = await cacheGet<AnalysisResult>(key);
+  if (cached !== undefined) return cached;
+  const data = await requestAuth<AnalysisResult>(
     `/analysis/get?run_id=${encodeURIComponent(String(runId))}`,
     { method: "GET" },
     "Failed to fetch analysis",
   );
+  await cacheSet(key, data);
+  return data;
 }
 
 export async function getAnalysisHistory(): Promise<AnalysisResult[]> {
-  return requestAuth<AnalysisResult[]>("/analysis/history", { method: "GET" }, "Failed to fetch analysis history");
+  const cached = await cacheGet<AnalysisResult[]>("analysis:history");
+  if (cached !== undefined) return cached;
+  const data = await requestAuth<AnalysisResult[]>("/analysis/history", { method: "GET" }, "Failed to fetch analysis history");
+  await cacheSet("analysis:history", data);
+  return data;
 }
 
 // Private helpers
@@ -451,6 +533,38 @@ async function requestPublic<T>(
   return responseBody as T;
 }
 
+async function attemptTokenRefresh(): Promise<string | null> {
+  if (refreshPromise) return refreshPromise;
+  refreshPromise = (async () => {
+    try {
+      const storedRefresh = await getStoredRefreshToken();
+      if (!storedRefresh) return null;
+      const response = await fetch(`${API_BASE_URL}/auth/refresh`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ refresh_token: storedRefresh }),
+      });
+      if (!response.ok) {
+        await deleteStoredToken();
+        await deleteStoredRefreshToken();
+        await cacheClear();
+        return null;
+      }
+      const data = await response.json() as AuthTokenResponse;
+      await setStoredToken(data.access_token);
+      if (data.refresh_token) await setStoredRefreshToken(data.refresh_token);
+      return data.access_token;
+    } catch {
+      return null;
+    }
+  })();
+  try {
+    return await refreshPromise;
+  } finally {
+    refreshPromise = null;
+  }
+}
+
 async function requestAuth<T>(
   path: string,
   init: RequestInit,
@@ -459,21 +573,28 @@ async function requestAuth<T>(
   const token = await getStoredToken();
   if (!token) throw new Error("No authentication token found");
 
-  const response = await fetch(`${API_BASE_URL}${path}`, {
-    ...init,
-    headers: {
-      Authorization: `Bearer ${token}`,
-      "Content-Type": "application/json",
-      ...(init.headers ?? {}),
-    },
-  });
+  const makeRequest = (accessToken: string) =>
+    fetch(`${API_BASE_URL}${path}`, {
+      ...init,
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
+        ...(init.headers ?? {}),
+      },
+    });
+
+  let response = await makeRequest(token);
+
+  if (response.status === 401) {
+    const newToken = await attemptTokenRefresh();
+    if (!newToken) {
+      throw new Error("Session expired. Please sign in again.");
+    }
+    response = await makeRequest(newToken);
+  }
 
   const responseBody = await parseJsonSafe(response);
   if (!response.ok) {
-    if (response.status === 401) {
-      await deleteStoredToken();
-      throw new Error("Authentication token is invalid");
-    }
     throw new Error(
       messageFromApiError(responseBody, response.status, response.statusText, fallbackMessage),
     );
@@ -500,4 +621,25 @@ async function deleteStoredToken(): Promise<void> {
     return;
   }
   await SecureStore.deleteItemAsync(TOKEN_STORAGE_KEY);
+}
+
+async function setStoredRefreshToken(token: string): Promise<void> {
+  if (Platform.OS === "web") {
+    localStorage.setItem(REFRESH_TOKEN_STORAGE_KEY, token);
+    return;
+  }
+  await SecureStore.setItemAsync(REFRESH_TOKEN_STORAGE_KEY, token);
+}
+
+async function getStoredRefreshToken(): Promise<string | null> {
+  if (Platform.OS === "web") return localStorage.getItem(REFRESH_TOKEN_STORAGE_KEY);
+  return SecureStore.getItemAsync(REFRESH_TOKEN_STORAGE_KEY);
+}
+
+async function deleteStoredRefreshToken(): Promise<void> {
+  if (Platform.OS === "web") {
+    localStorage.removeItem(REFRESH_TOKEN_STORAGE_KEY);
+    return;
+  }
+  await SecureStore.deleteItemAsync(REFRESH_TOKEN_STORAGE_KEY);
 }

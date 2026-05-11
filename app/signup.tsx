@@ -1,7 +1,7 @@
 import GoogleButton from "@/components/atomic/Button/GoogleButton";
 import PrimaryButton from "@/components/atomic/Button/PrimaryButton";
 import LoadingSpinner from "@/components/atomic/Feedback/LoadingSpinner";
-import { login, loginWithApple, loginWithGoogle, register } from "@/utils/endpoints";
+import { loginWithApple, loginWithGoogle, register, sendVerificationEmail } from "@/utils/endpoints";
 import { LICENSE_AGREEMENT_TEXT } from "@/constants/licenseAgreement";
 import * as AppleAuthentication from "expo-apple-authentication";
 import * as Google from "expo-auth-session/providers/google";
@@ -123,13 +123,9 @@ export default function SignUpPage() {
     setError(null);
 
     try {
-      const registerResult = await register(email.trim(), password);
-      console.log("Registration successful:", registerResult);
-      
-      const loginResult = await login(email.trim(), password);
-      console.log("Auto-login successful:", loginResult);
-      
-      router.replace("/profile");
+      await register(email.trim(), password);
+      await sendVerificationEmail(email.trim());
+      router.replace({ pathname: "/verify-email", params: { email: email.trim() } });
     } catch (err: any) {
       console.error("Signup error:", err);
       setError(err.message || "Failed to create account. Please try again.");
