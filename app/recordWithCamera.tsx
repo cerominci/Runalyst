@@ -12,7 +12,9 @@ import {
 
 import { VideoView, useVideoPlayer } from "expo-video";
 import { useEffect, useRef, useState } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
+import { useRouter } from "expo-router";
+import { Pressable, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
 // TODO: Replace with your actual email and password
 const DEV_EMAIL = "your-email@example.com";
@@ -22,6 +24,7 @@ const DEV_PASSWORD = "your-password-here";
 const API_BASE_URL = "https://your-backend-api.com";
 
 export default function App() {
+  const router = useRouter();
   const [permission, requestPermission] = useCameraPermissions();
   const ref = useRef<CameraView>(null);
   const recordingPromiseRef = useRef<Promise<{ uri: string } | undefined> | null>(null);
@@ -328,6 +331,13 @@ export default function App() {
           responsiveOrientationWhenOrientationLocked
         />
 
+        {/* Back button */}
+        {!recording && (
+          <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
+            <Ionicons name="chevron-back" size={18} color="#fff" />
+          </TouchableOpacity>
+        )}
+
         {/* Mode selector */}
         {!recording && (
           <View style={styles.modeContainer}>
@@ -475,6 +485,18 @@ const styles = StyleSheet.create({
   },
   cameraContainer: StyleSheet.absoluteFillObject,
   camera: StyleSheet.absoluteFillObject,
+  backBtn: {
+    position: "absolute",
+    top: 56,
+    left: 16,
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: "rgba(0,0,0,0.45)",
+    alignItems: "center",
+    justifyContent: "center",
+    zIndex: 10,
+  },
   modeContainer: {
     position: "absolute",
     top: 50,

@@ -1,122 +1,27 @@
-import PrimaryButton from "@/components/atomic/Button/PrimaryButton";
-import ErrorAlert from "@/components/atomic/Feedback/ErrorAlert";
-import InfoAlert from "@/components/atomic/Feedback/InfoAlert";
-import LoadingSpinner from "@/components/atomic/Feedback/LoadingSpinner";
-import Banner from "@/components/atomic/Layout/Banner";
-import Column from "@/components/atomic/Layout/Column";
-import ScreenContainer from "@/components/atomic/Layout/ScreenContainer";
-import ScrollScreen from "@/components/atomic/Layout/ScrollScreen";
-import BodyText from "@/components/atomic/Typography/BodyText";
-import Subtitle from "@/components/atomic/Typography/Subtitle";
+import AppTopBar from "@/components/composite/Layout/AppTopBar";
+import { Ionicons } from "@expo/vector-icons";
 import { binaryUpload, createRunRecord, generateUploadUrl } from "@/utils/endpoints";
 import * as ImagePicker from "expo-image-picker";
 import { useRouter } from "expo-router";
 import { VideoView, useVideoPlayer } from "expo-video";
 import React, { useMemo, useState } from "react";
-import { Modal, Pressable, StyleSheet, View } from "react-native";
+import {
+  ActivityIndicator,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 export default function GalleryPressScreen() {
   const router = useRouter();
 
   const [selectedVideo, setSelectedVideo] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState<string | null>(null);
+  const [success, setSuccess] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
-
-  // ✅ Cross-platform popup helper
-  type PopupTone = "info" | "success" | "error";
-
-  const [popup, setPopup] = useState<{
-    visible: boolean;
-    title: string;
-    message?: string;
-    tone: PopupTone;
-  }>({ visible: false, title: "", message: "", tone: "info" });
-
-  const showPopup = (
-    title: string,
-    message?: string,
-    tone: PopupTone = "info",
-  ) => {
-    setPopup({ visible: true, title, message, tone });
-  };
-
-  const hidePopup = () => setPopup((p) => ({ ...p, visible: false }));
-  function PopupModal({
-    visible,
-    title,
-    message,
-    tone,
-    onClose,
-  }: {
-    visible: boolean;
-    title: string;
-    message?: string;
-    tone: "info" | "success" | "error";
-    onClose: () => void;
-  }) {
-    return (
-      <Modal
-        visible={visible}
-        transparent
-        animationType="fade"
-        onRequestClose={onClose}
-      >
-        <Pressable style={popupStyles.backdrop} onPress={onClose}>
-          <Pressable style={popupStyles.card} onPress={() => {}}>
-            <View
-              style={[
-                popupStyles.accent,
-                tone === "success"
-                  ? popupStyles.success
-                  : tone === "error"
-                    ? popupStyles.error
-                    : popupStyles.info,
-              ]}
-            />
-            <View style={popupStyles.content}>
-              <Subtitle style={popupStyles.title}>{title}</Subtitle>
-              {!!message && (
-                <BodyText style={popupStyles.message}>{message}</BodyText>
-              )}
-
-              <PrimaryButton
-                title="OK"
-                onPress={onClose}
-                style={popupStyles.okButton}
-              />
-            </View>
-          </Pressable>
-        </Pressable>
-      </Modal>
-    );
-  }
-
-  const popupStyles = StyleSheet.create({
-    backdrop: {
-      flex: 1,
-      backgroundColor: "rgba(0,0,0,0.45)",
-      alignItems: "center",
-      justifyContent: "center",
-      padding: 16,
-    },
-    card: {
-      width: "100%",
-      maxWidth: 420,
-      borderRadius: 16,
-      overflow: "hidden",
-      backgroundColor: "#FFFFFF",
-    },
-    accent: { height: 6 },
-    info: { backgroundColor: "#3B82F6" },
-    success: { backgroundColor: "#22C55E" },
-    error: { backgroundColor: "#EF4444" },
-
-    content: { padding: 16, gap: 10 },
-    title: { fontSize: 18 },
-    message: { color: "#64748B", lineHeight: 20 },
-    okButton: { width: "100%", paddingVertical: 14, marginTop: 6 },
-  });
 
   const player = useVideoPlayer(selectedVideo ?? "", (p) => {
     p.loop = true;
@@ -125,28 +30,33 @@ export default function GalleryPressScreen() {
 
   const pickVideoAsync = async () => {
     setError(null);
-    setSuccess(null);
-
+    setSuccess(false);
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: "videos",
       allowsEditing: false,
       quality: 1,
     });
-
     if (!result.canceled) {
       setSelectedVideo(result.assets?.[0]?.uri ?? null);
-      showPopup("Selected", "Video selected successfully!");
-    } else {
-      showPopup("No video selected");
+    }
+  };
+
+  const trimVideoAsync = async () => {
+    setError(null);
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: "videos",
+      allowsEditing: true,
+      quality: 1,
+    });
+    if (!result.canceled) {
+      setSelectedVideo(result.assets?.[0]?.uri ?? null);
     }
   };
 
   const fileInfo = useMemo(() => {
     if (!selectedVideo) return null;
-
     const uri = selectedVideo;
     const name = (uri.split("/").pop() || "video.mp4").toLowerCase();
-
     const type = name.endsWith(".mov")
       ? "video/quicktime"
       : name.endsWith(".webm")
@@ -154,173 +64,258 @@ export default function GalleryPressScreen() {
         : name.endsWith(".mkv")
           ? "video/x-matroska"
           : "video/mp4";
-
     return { uri, name, type };
   }, [selectedVideo]);
 
-  const uploadVideoAsync = async () => {
-    if (!fileInfo) {
-      setError("Pick a video first");
-      showPopup("Missing video", "Pick a video first.");
-      return;
-    }
-
-    // Ensure no audio keeps playing while upload starts.
+  const handleStartAnalysis = async () => {
+    if (!fileInfo) { setError("Pick a video first."); return; }
     (player as any).pause?.();
     (player as any).muted = true;
     setIsUploading(true);
     setError(null);
-    setSuccess(null);
-
     try {
       const { upload_url: uploadUrl, path } = await generateUploadUrl();
-      
-      // Use the centralized binary upload function
       await binaryUpload(fileInfo.uri, uploadUrl, fileInfo.type);
-
-      // Create run record after successful upload (required for analysis visibility)
-      console.log("Uploaded path:", path);
-      const runRecord = await createRunRecord(path, "run");
-      console.log("Run record created:", runRecord);
-
-      setSuccess("Video uploaded successfully!");
-      showPopup("Success", "Video uploaded successfully!");
+      await createRunRecord(path, "run");
+      setSuccess(true);
+      setSelectedVideo(null);
     } catch (e: any) {
-      const msg = e?.message ?? "Unknown error";
-      setError(msg);
-      showPopup("Upload error", msg);
+      setError(e?.message ?? "Upload failed. Please try again.");
     } finally {
       setIsUploading(false);
     }
   };
 
-  const handleStartAnalysis = async () => {
-    if (!selectedVideo) {
-      setError("Please select a video first.");
-      showPopup("No Video", "Please select a video first.");
-      return;
-    }
-
-    await uploadVideoAsync();
-  };
-
   return (
-    <ScreenContainer>
-      <PopupModal
-        visible={popup.visible}
-        title={popup.title}
-        message={popup.message}
-        tone={popup.tone}
-        onClose={hidePopup}
-      />
+    <SafeAreaView style={styles.safe}>
+      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+        <AppTopBar title="From Gallery" sub="Select a clip to analyse" back />
 
-      <ScrollScreen>
-        <Column style={styles.content}>
-          <Banner
-            title="Select from Gallery"
-            onBackPress={() => router.back()}
-          />
-
-          <Subtitle style={styles.subtitle}>
-            Choose a video from your gallery to analyze your running form.
-          </Subtitle>
-
-          {/* Inline banners still useful even if popups are blocked */}
-          {error && <ErrorAlert message={error} />}
-          {success && <InfoAlert message={success} />}
-
-          {isUploading ? (
-            <View style={styles.centerContainer}>
-              <LoadingSpinner size="large" />
-              <BodyText style={styles.loadingText}>Uploading Video...</BodyText>
+        {isUploading ? (
+          <View style={styles.uploadingCard}>
+            <ActivityIndicator size="large" color="#6347C7" />
+            <Text style={styles.uploadingTitle}>Uploading…</Text>
+            <Text style={styles.uploadingSub}>Hang tight while we send your clip.</Text>
+          </View>
+        ) : success ? (
+          <View style={styles.successCard}>
+            <View style={styles.successIcon}>
+              <Ionicons name="checkmark" size={30} color="#fff" />
             </View>
-          ) : (
-            <>
-              {!success && selectedVideo ? (
-                <View style={styles.videoContainer}>
-                  <VideoView
-                    player={player}
-                    style={styles.videoPreview}
-                    allowsFullscreen
-                    allowsPictureInPicture
-                  />
-                  <InfoAlert
-                    message={
-                      "Video selected successfully. You can now start the analysis."
-                    }
-                  />
-                </View>
-              ) : (
-                <InfoAlert message="Tap the button below to select a video from your gallery." />
-              )}
-
-              <PrimaryButton
-                title={
-                  selectedVideo
-                    ? "Select Different Video"
-                    : "Pick Video from Gallery"
-                }
-                onPress={pickVideoAsync}
-                disabled={isUploading}
-                style={styles.pickButton}
+            <Text style={styles.successTitle}>Upload complete</Text>
+            <Text style={styles.successSub}>
+              We're analysing your gait. Results will be ready in ~45 seconds.
+            </Text>
+            <TouchableOpacity
+              style={styles.successBtn}
+              onPress={() => router.push("/analysis-history" as any)}
+              activeOpacity={0.85}
+            >
+              <Text style={styles.successBtnText}>View analysis</Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => { setSuccess(false); }} style={styles.successLink}>
+              <Text style={styles.successLinkText}>Upload another clip</Text>
+            </TouchableOpacity>
+          </View>
+        ) : selectedVideo ? (
+          <>
+            {/* Video preview */}
+            <View style={styles.previewCard}>
+              <VideoView
+                player={player}
+                style={styles.videoPreview}
+                allowsFullscreen
+                allowsPictureInPicture
               />
+              <View style={styles.actionRow}>
+                <TouchableOpacity style={styles.actionBtn} onPress={trimVideoAsync} activeOpacity={0.8}>
+                  <Ionicons name="cut-outline" size={16} color="#6347C7" />
+                  <Text style={styles.actionBtnText}>Trim clip</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.actionBtn} onPress={pickVideoAsync} activeOpacity={0.8}>
+                  <Ionicons name="refresh-outline" size={16} color="#6347C7" />
+                  <Text style={styles.actionBtnText}>Change</Text>
+                </TouchableOpacity>
+              </View>
+              <View style={styles.hintRow}>
+                <Ionicons name="information-circle-outline" size={14} color="#6347C7" />
+                <Text style={styles.hintText}>Trim to a 5–15 s side-on clip for best results</Text>
+              </View>
+            </View>
 
-              {selectedVideo && (
-                <PrimaryButton
-                  title="Start Analysis"
-                  onPress={handleStartAnalysis}
-                  style={styles.analyzeButton}
-                />
-              )}
-            </>
-          )}
-        </Column>
-      </ScrollScreen>
-    </ScreenContainer>
+            {error && (
+              <View style={styles.errorBox}>
+                <Ionicons name="alert-circle-outline" size={16} color="#EF4444" />
+                <Text style={styles.errorText}>{error}</Text>
+              </View>
+            )}
+
+            <TouchableOpacity style={styles.primaryBtn} onPress={handleStartAnalysis} activeOpacity={0.85}>
+              <Text style={styles.primaryBtnText}>Start Analysis →</Text>
+            </TouchableOpacity>
+          </>
+        ) : (
+          <>
+            {/* Empty state */}
+            <TouchableOpacity style={styles.emptyCard} onPress={pickVideoAsync} activeOpacity={0.8}>
+              <View style={styles.emptyIcon}>
+                <Ionicons name="cloud-upload-outline" size={32} color="#6347C7" />
+              </View>
+              <Text style={styles.emptyTitle}>Tap to pick a video</Text>
+              <Text style={styles.emptySub}>MP4, MOV, or WEBM · 5–15 seconds recommended</Text>
+            </TouchableOpacity>
+
+            {error && (
+              <View style={styles.errorBox}>
+                <Ionicons name="alert-circle-outline" size={16} color="#EF4444" />
+                <Text style={styles.errorText}>{error}</Text>
+              </View>
+            )}
+          </>
+        )}
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  content: {
-    flex: 1,
-    gap: 16,
-  },
-  subtitle: {
-    fontSize: 16,
-    color: "#64748B",
-    lineHeight: 24,
+  safe: { flex: 1, backgroundColor: "#F5F3FF" },
+  scroll: { paddingHorizontal: 16, paddingBottom: 40 },
+
+  uploadingCard: {
+    backgroundColor: "#fff",
+    borderRadius: 20,
+    padding: 36,
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+    gap: 10,
     marginTop: 8,
   },
-  centerContainer: {
-    flex: 1,
-    justifyContent: "center",
+  uploadingTitle: { fontSize: 18, fontWeight: "800", color: "#0F172A", marginTop: 8 },
+  uploadingSub: { fontSize: 14, color: "#64748B", textAlign: "center" },
+
+  successCard: {
+    backgroundColor: "#fff",
+    borderRadius: 20,
+    padding: 28,
     alignItems: "center",
-    gap: 16,
-    minHeight: 200,
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+    marginTop: 8,
+    gap: 8,
   },
-  loadingText: {
+  successIcon: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: "#22C55E",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 8,
+  },
+  successTitle: { fontSize: 20, fontWeight: "800", color: "#0F172A" },
+  successSub: { fontSize: 14, color: "#64748B", textAlign: "center", lineHeight: 20 },
+  successBtn: {
     marginTop: 12,
-    textAlign: "center",
-    color: "#64748B",
-  },
-  videoContainer: {
+    backgroundColor: "#6347C7",
+    borderRadius: 14,
+    paddingVertical: 14,
+    paddingHorizontal: 32,
     width: "100%",
-    gap: 12,
+    alignItems: "center",
+  },
+  successBtnText: { color: "#fff", fontWeight: "700", fontSize: 15 },
+  successLink: { marginTop: 4, paddingVertical: 8 },
+  successLinkText: { color: "#6347C7", fontWeight: "600", fontSize: 14 },
+
+  previewCard: {
+    backgroundColor: "#fff",
+    borderRadius: 20,
+    overflow: "hidden",
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+    marginTop: 8,
+    marginBottom: 14,
+    shadowColor: "#6347C7",
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 2,
   },
   videoPreview: {
     width: "100%",
     aspectRatio: 16 / 9,
+    backgroundColor: "#000",
+  },
+  actionRow: {
+    flexDirection: "row",
+    borderTopWidth: 1,
+    borderTopColor: "#F1F5F9",
+  },
+  actionBtn: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    paddingVertical: 13,
+    borderRightWidth: 1,
+    borderRightColor: "#F1F5F9",
+  },
+  actionBtnText: { fontSize: 13, fontWeight: "700", color: "#6347C7" },
+  hintRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    backgroundColor: "#EDE9FB",
+    paddingHorizontal: 14,
+    paddingVertical: 9,
+  },
+  hintText: { fontSize: 12, color: "#4929B3", fontWeight: "500" },
+
+  emptyCard: {
+    backgroundColor: "#fff",
+    borderRadius: 20,
+    borderWidth: 1.5,
+    borderColor: "#EDE9FB",
+    borderStyle: "dashed",
+    padding: 40,
+    alignItems: "center",
+    marginTop: 8,
+    marginBottom: 14,
+    gap: 10,
+  },
+  emptyIcon: {
+    width: 64,
+    height: 64,
+    borderRadius: 20,
+    backgroundColor: "#EDE9FB",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 4,
+  },
+  emptyTitle: { fontSize: 17, fontWeight: "700", color: "#0F172A" },
+  emptySub: { fontSize: 13, color: "#64748B", textAlign: "center" },
+
+  errorBox: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    backgroundColor: "#FEF2F2",
     borderRadius: 12,
-    backgroundColor: "#000000",
+    padding: 12,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: "#FECACA",
   },
-  pickButton: {
-    width: "100%",
+  errorText: { color: "#EF4444", fontSize: 13, flex: 1 },
+
+  primaryBtn: {
+    backgroundColor: "#6347C7",
+    borderRadius: 16,
     paddingVertical: 16,
-    marginTop: 8,
+    alignItems: "center",
   },
-  analyzeButton: {
-    width: "100%",
-    paddingVertical: 16,
-    marginTop: 8,
-  },
+  primaryBtnText: { color: "#fff", fontWeight: "700", fontSize: 16 },
 });

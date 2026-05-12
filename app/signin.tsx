@@ -1,7 +1,6 @@
 import GoogleButton from "@/components/atomic/Button/GoogleButton";
 import LoadingSpinner from "@/components/atomic/Feedback/LoadingSpinner";
-import { login, loginWithApple, loginWithGoogle } from "@/utils/endpoints";
-import * as AppleAuthentication from "expo-apple-authentication";
+import { login, loginWithGoogle } from "@/utils/endpoints";
 import * as Google from "expo-auth-session/providers/google";
 import { useRouter } from "expo-router";
 import * as WebBrowser from "expo-web-browser";
@@ -56,31 +55,6 @@ export default function SignInPage() {
     setIsLoading(true); setError(null);
     try { await googlePromptAsync(); }
     catch (err: any) { setError(err?.message ?? "Google Sign-In failed."); setIsLoading(false); }
-  };
-
-  const handleAppleSignIn = async () => {
-    setIsLoading(true); setError(null);
-    try {
-      const credential = await AppleAuthentication.signInAsync({
-        requestedScopes: [
-          AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
-          AppleAuthentication.AppleAuthenticationScope.EMAIL,
-        ],
-      });
-      if (!credential.identityToken) throw new Error("Apple Sign-In did not return an identity token.");
-      await loginWithApple({
-        identityToken: credential.identityToken,
-        authorizationCode: credential.authorizationCode ?? undefined,
-        email: credential.email ?? undefined,
-        firstName: credential.fullName?.givenName ?? undefined,
-        lastName: credential.fullName?.familyName ?? undefined,
-        appleUser: credential.user,
-      });
-      router.replace(POST_LOGIN_ROUTE);
-    } catch (err: any) {
-      if (err?.code === "ERR_REQUEST_CANCELED") { setError(null); return; }
-      setError(err?.message ?? "Apple Sign-In failed.");
-    } finally { setIsLoading(false); }
   };
 
   const handleSignIn = async () => {
@@ -153,11 +127,6 @@ export default function SignInPage() {
             <View style={styles.divLine} />
           </View>
 
-          {Platform.OS === "ios" && (
-            <TouchableOpacity style={styles.oauthBtn} onPress={handleAppleSignIn} disabled={isLoading} activeOpacity={0.8}>
-              <Text style={styles.oauthBtnText}>Continue with Apple</Text>
-            </TouchableOpacity>
-          )}
           <GoogleButton onPress={handleGoogleSignIn} style={styles.googleBtn} />
 
           {/* Switch to signup */}
@@ -245,16 +214,6 @@ const styles = StyleSheet.create({
   divider: { flexDirection: "row", alignItems: "center", gap: 12, marginBottom: 20 },
   divLine: { flex: 1, height: 1, backgroundColor: "#E2E8F0" },
   divText: { fontSize: 12, fontWeight: "700", color: "#94A3B8", letterSpacing: 0.8 },
-  oauthBtn: {
-    backgroundColor: "#EDE9FB",
-    borderRadius: 16,
-    paddingVertical: 14,
-    alignItems: "center",
-    marginBottom: 12,
-    borderWidth: 1,
-    borderColor: "#D8D1F5",
-  },
-  oauthBtnText: { color: "#4929B3", fontWeight: "700", fontSize: 15 },
   googleBtn: { marginBottom: 12 },
   switchRow: { alignItems: "center", marginTop: 16 },
   switchText: { fontSize: 15, color: "#64748B" },
