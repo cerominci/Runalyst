@@ -10,7 +10,22 @@
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.runalyst.runalyst"
+      "bundleIdentifier": "com.runalyst.runalyst",
+      "infoPlist": {
+        "CFBundleURLTypes": [
+          {
+            "CFBundleURLSchemes": [
+              "com.googleusercontent.apps.450056730034-5fsqr429bqtj175bh5dmldvd1ueaeucm"
+            ]
+          },
+          {
+            "CFBundleURLSchemes": [
+              "com.googleusercontent.apps.450056730034-5fsqr429bqtj175bh5dmldvd1ueaeucm"
+            ]
+          }
+        ],
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
       "adaptiveIcon": {
