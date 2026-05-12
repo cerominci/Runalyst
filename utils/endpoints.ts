@@ -455,6 +455,52 @@ export async function verifyEmail(email: string, code: string): Promise<void> {
   );
 }
 
+// Public API: chat
+export type ChatVideoSummary = {
+  user_id: string;
+  video_id: string;
+  title: string | null;
+  thumbnail_url: string | null;
+  created_at: string | null;
+  metadata: Record<string, unknown>;
+  analysis: Record<string, unknown> | string | null;
+};
+
+export type ChatVideosResponse = {
+  session_id: string;
+  user_id: string;
+  videos: ChatVideoSummary[];
+};
+
+export type SelectChatVideoResponse = {
+  ok: boolean;
+  selected_video: ChatVideoSummary;
+};
+
+export type ChatMessageResponse = {
+  answer: string;
+};
+
+export async function getChatVideos(): Promise<ChatVideosResponse> {
+  return requestAuth<ChatVideosResponse>("/chat/videos", { method: "GET" }, "Failed to load videos");
+}
+
+export async function selectChatVideo(session_id: string, video_id: string): Promise<SelectChatVideoResponse> {
+  return requestAuth<SelectChatVideoResponse>(
+    "/chat/videos/select",
+    { method: "POST", body: JSON.stringify({ session_id, video_id }) },
+    "Failed to select video",
+  );
+}
+
+export async function sendChatMessage(session_id: string, message: string): Promise<ChatMessageResponse> {
+  return requestAuth<ChatMessageResponse>(
+    "/chat/message",
+    { method: "POST", body: JSON.stringify({ session_id, message }) },
+    "Failed to send message",
+  );
+}
+
 // Public API: analysis
 export async function getAnalysis(runId: number): Promise<AnalysisResult> {
   const key = `analysis:${runId}`;

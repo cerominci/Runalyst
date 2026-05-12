@@ -18,11 +18,11 @@ const ScreenContainer: React.FC<ScreenContainerProps> = ({ children, style }) =>
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#F8FAFC",
+    backgroundColor: "#F5F3FF",
     paddingHorizontal: 12,
     paddingTop: 8,
-    maxWidth: 800, // Prevent content from being too wide on web
-    alignSelf: "center", // Center content on web
+    maxWidth: 800,
+    alignSelf: "center",
     width: "100%",
   },
 });

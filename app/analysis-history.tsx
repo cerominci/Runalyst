@@ -126,7 +126,7 @@ export default function AnalysisHistoryScreen() {
   return (
     <ScreenContainer>
       <Column style={styles.content}>
-        <AppTopBar />
+        <AppTopBar back />
         <View style={styles.headerSection}>
           <Subtitle style={styles.title}>Your Videos</Subtitle>
           <Subtitle style={styles.subtitle}>

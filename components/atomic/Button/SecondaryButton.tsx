@@ -21,16 +21,17 @@ const SecondaryButton: React.FC<SecondaryButtonProps> = ({ title, onPress, style
 
 const styles = StyleSheet.create({
   button: {
-    borderColor: "#3B82F6",
-    borderWidth: 2,
-    paddingVertical: 12,
-    borderRadius: 10,
+    borderColor: "#6347C7",
+    borderWidth: 1.5,
+    paddingVertical: 14,
+    borderRadius: 14,
     alignItems: "center",
+    backgroundColor: "#EDE9FB",
   },
   text: {
-    color: "#3B82F6",
+    color: "#6347C7",
     fontSize: 16,
-    fontWeight: "600",
+    fontWeight: "700",
   },
 });
 

@@ -9,7 +9,7 @@ export default function SettingsScreen() {
   return (
     <ScreenContainer>
       <Column style={styles.content}>
-        <AppTopBar title="Settings" />
+        <AppTopBar title="Settings" back />
         <View style={styles.card}>
           <Subtitle style={styles.title}>Settings</Subtitle>
           <Subtitle style={styles.description}>

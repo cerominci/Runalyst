@@ -34,18 +34,18 @@ const PrimaryButton: React.FC<PrimaryButtonProps> = ({
 
 const styles = StyleSheet.create({
   button: {
-    backgroundColor: "#3B82F6", // Runalyst primary color
+    backgroundColor: "#6347C7",
     paddingVertical: 14,
-    borderRadius: 10,
+    borderRadius: 14,
     alignItems: "center",
   },
   disabled: {
-    backgroundColor: "#9BBEF5",
+    backgroundColor: "#B5A8E8",
   },
   text: {
     color: "#fff",
     fontSize: 16,
-    fontWeight: "600",
+    fontWeight: "700",
   },
 });
 

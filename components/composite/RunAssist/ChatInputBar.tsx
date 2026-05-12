@@ -5,13 +5,14 @@ import { StyleSheet, TextInput, TouchableOpacity, View } from "react-native";
 
 interface ChatInputBarProps {
   onSend: (text: string) => void;
+  disabled?: boolean;
 }
 
-const ChatInputBar: React.FC<ChatInputBarProps> = ({ onSend }) => {
+const ChatInputBar: React.FC<ChatInputBarProps> = ({ onSend, disabled = false }) => {
   const [value, setValue] = useState("");
 
   const send = () => {
-    if (!value.trim()) return;
+    if (!value.trim() || disabled) return;
     onSend(value.trim());
     setValue("");
   };
@@ -22,12 +23,18 @@ const ChatInputBar: React.FC<ChatInputBarProps> = ({ onSend }) => {
         style={styles.input}
         value={value}
         onChangeText={setValue}
-        placeholder="Ask something..."
+        placeholder={disabled ? "Waiting for response..." : "Ask something..."}
         placeholderTextColor="#94A3B8"
         multiline
+        editable={!disabled}
       />
 
-      <TouchableOpacity style={styles.sendBtn} onPress={send} activeOpacity={0.7}>
+      <TouchableOpacity
+        style={[styles.sendBtn, disabled && styles.sendBtnDisabled]}
+        onPress={send}
+        activeOpacity={0.7}
+        disabled={disabled}
+      >
         <Ionicons name="send" size={20} color="#FFFFFF" />
       </TouchableOpacity>
     </View>
@@ -60,6 +67,9 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     justifyContent: "center",
     alignItems: "center",
+  },
+  sendBtnDisabled: {
+    backgroundColor: "#93C5FD",
   },
 });
 

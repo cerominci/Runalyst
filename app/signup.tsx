@@ -135,11 +135,11 @@ export default function SignUpPage() {
   };
 
   return (
-    <ScrollView contentContainerStyle={styles.container}>
+    <ScrollView contentContainerStyle={styles.container} style={{ backgroundColor: "#F5F3FF" }} keyboardShouldPersistTaps="handled">
       {/* HEADER */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} disabled={isLoading}>
-          <Text style={styles.back}>←</Text>
+        <TouchableOpacity style={styles.backBtn} onPress={() => router.back()} disabled={isLoading}>
+          <Text style={styles.back}>‹</Text>
         </TouchableOpacity>
 
         <Text style={styles.title}>Create Account</Text>
@@ -298,27 +298,28 @@ function Input({ label, value, setValue, error, ...props }: InputProps) {
 }
 
 const styles = StyleSheet.create({
-  container: { paddingHorizontal: 24, paddingTop: 70, paddingBottom: 50 },
-  header: { marginBottom: 40 },
-  back: { fontSize: 30, color: "#1E293B", marginBottom: 12 },
-  title: { fontSize: 32, fontWeight: "800", color: "#1E293B" },
+  container: { paddingHorizontal: 24, paddingTop: 60, paddingBottom: 50 },
+  header: { marginBottom: 36 },
+  backBtn: {
+    width: 38, height: 38, borderRadius: 19,
+    backgroundColor: "#EDE9FB", alignItems: "center", justifyContent: "center",
+    marginBottom: 20,
+  },
+  back: { fontSize: 26, color: "#6347C7", lineHeight: 32, marginTop: -2 },
+  title: { fontSize: 30, fontWeight: "800", color: "#0F172A", letterSpacing: -0.5 },
   subtitle: { fontSize: 15, color: "#64748B", marginTop: 8 },
-  form: { marginTop: 10 },
+  form: { marginTop: 4 },
   errorContainer: {
-    backgroundColor: "#FEE2E2",
+    backgroundColor: "#F5F2FF",
     padding: 12,
-    borderRadius: 8,
+    borderRadius: 12,
     marginBottom: 16,
     borderWidth: 1,
-    borderColor: "#FCA5A5",
+    borderColor: "#EDE9FB",
   },
-  errorText: {
-    color: "#DC2626",
-    fontSize: 14,
-    textAlign: "center",
-  },
-  inputWrapper: { marginBottom: 24 },
-  label: { marginBottom: 8, fontSize: 14, fontWeight: "600", color: "#334155" },
+  errorText: { color: "#4929B3", fontSize: 14, textAlign: "center" },
+  inputWrapper: { marginBottom: 20 },
+  label: { marginBottom: 8, fontSize: 13, fontWeight: "600", color: "#334155" },
   input: {
     backgroundColor: "#F1F5F9",
     borderRadius: 14,
@@ -326,88 +327,44 @@ const styles = StyleSheet.create({
     fontSize: 16,
     borderWidth: 1,
     borderColor: "#E2E8F0",
+    color: "#0F172A",
   },
   inputError: {
-    borderColor: "#FCA5A5",
-    backgroundColor: "#FEF2F2",
+    borderColor: "#EDE9FB",
+    backgroundColor: "#F5F2FF",
   },
-  terms: {
-    fontSize: 13,
-    color: "#64748B",
-    textAlign: "center",
-    marginTop: 8,
-    lineHeight: 20,
-  },
-  link: { color: "#3B82F6", fontWeight: "700" },
-  signUpButton: { marginTop: 24 },
+  terms: { fontSize: 13, color: "#64748B", textAlign: "center", marginTop: 8, lineHeight: 20 },
+  link: { color: "#6347C7", fontWeight: "700" },
+  signUpButton: { marginTop: 20 },
   appleButton: { marginTop: 12 },
   googleButton: { marginTop: 12 },
-  loadingContainer: {
-    alignItems: "center",
-    marginTop: 16,
-  },
+  loadingContainer: { alignItems: "center", marginTop: 16 },
   modalBackdrop: {
-  flex: 1,
-  backgroundColor: "rgba(0,0,0,0.45)",
-  alignItems: "center",
-  justifyContent: "center",
-  padding: 20,
-},
-
-modalCard: {
-  width: "100%",
-  maxWidth: 420,
-  maxHeight: "80%",
-  borderRadius: 18,
-  backgroundColor: "#FFFFFF",
-  padding: 20,
-},
-
-modalContent: {
-  height: 280,
-  marginBottom: 20,
-},
-
-modalContentContainer: {
-  paddingBottom: 16,
-},
-modalTitle: {
-  fontSize: 20,
-  fontWeight: "800",
-  color: "#0F172A",
-  marginBottom: 12,
-},
-modalText: {
-  fontSize: 14,
-  color: "#334155",
-  lineHeight: 22,
-},
-  modalActions: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-  },
-  modalButton: {
     flex: 1,
-    borderRadius: 14,
-    paddingVertical: 14,
+    backgroundColor: "rgba(0,0,0,0.45)",
     alignItems: "center",
     justifyContent: "center",
+    padding: 20,
   },
-  modalDeclineButton: {
-    backgroundColor: "#E2E8F0",
+  modalCard: {
+    width: "100%",
+    maxWidth: 420,
+    maxHeight: "80%",
+    borderRadius: 22,
+    backgroundColor: "#FFFFFF",
+    padding: 20,
   },
-  modalAgreeButton: {
-    backgroundColor: "#2563EB",
-  },
-  modalDeclineText: {
-    color: "#334155",
-    fontWeight: "700",
-  },
-  modalAgreeText: {
-    color: "#FFFFFF",
-    fontWeight: "700",
-  },
-  bottomLink: { marginTop: 30, alignItems: "center" },
-  bottomLinkText: { fontSize: 15, color: "#475569" },
-  bold: { color: "#3B82F6", fontWeight: "800" },
+  modalContent: { height: 280, marginBottom: 20 },
+  modalContentContainer: { paddingBottom: 16 },
+  modalTitle: { fontSize: 20, fontWeight: "800", color: "#0F172A", marginBottom: 12 },
+  modalText: { fontSize: 14, color: "#334155", lineHeight: 22 },
+  modalActions: { flexDirection: "row", justifyContent: "space-between", gap: 10 },
+  modalButton: { flex: 1, borderRadius: 14, paddingVertical: 14, alignItems: "center", justifyContent: "center" },
+  modalDeclineButton: { backgroundColor: "#EDE9FB" },
+  modalAgreeButton: { backgroundColor: "#6347C7" },
+  modalDeclineText: { color: "#4929B3", fontWeight: "700" },
+  modalAgreeText: { color: "#FFFFFF", fontWeight: "700" },
+  bottomLink: { marginTop: 28, alignItems: "center" },
+  bottomLinkText: { fontSize: 15, color: "#64748B" },
+  bold: { color: "#6347C7", fontWeight: "800" },
 });
