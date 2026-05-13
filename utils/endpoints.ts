@@ -337,24 +337,13 @@ export async function binaryUpload(
     return;
   }
 
-  const base64Data = await FileSystem.readAsStringAsync(fileUri, {
-    encoding: "base64" as never,
-  });
-  const byteCharacters = atob(base64Data);
-  const byteNumbers = new Array(byteCharacters.length);
-  for (let i = 0; i < byteCharacters.length; i += 1) {
-    byteNumbers[i] = byteCharacters.charCodeAt(i);
-  }
-  const byteArray = new Uint8Array(byteNumbers);
-
-  const response = await fetch(uploadUrl, {
-    method: "PUT",
-    body: byteArray,
+  const result = await FileSystem.uploadAsync(uploadUrl, fileUri, {
+    httpMethod: "PUT",
+    uploadType: FileSystem.FileSystemUploadType.BINARY_CONTENT,
     headers: { "Content-Type": contentType },
   });
-  if (!response.ok) {
-    const errorText = await response.text().catch(() => "");
-    throw new Error(`Upload failed (${response.status}): ${errorText}`);
+  if (result.status < 200 || result.status >= 300) {
+    throw new Error(`Upload failed (${result.status}): ${result.body}`);
   }
 }
 
