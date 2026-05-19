@@ -7,6 +7,7 @@ import Title from "@/components/atomic/Typography/Title";
 import ContactTrendMiniChart, {
   ContactTrendPoint,
 } from "@/components/composite/Analysis/ContactTrendMiniChart";
+import RecommendationsSection from "@/components/composite/Analysis/RecommendationsSection";
 import EventDegreeLineChart, {
   EventDegreePoint,
 } from "@/components/composite/Analysis/EventDegreeLineChart";
@@ -649,6 +650,10 @@ export default function RunDetailScreen() {
                   title="No Module Data"
                   points={["This run does not contain detailed module results yet."]}
                 />
+              )}
+
+              {Object.keys(modules).length > 0 && (
+                <RecommendationsSection runId={runId} />
               )}
             </>
           )}

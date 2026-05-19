@@ -29,6 +29,7 @@ export type Run = {
   id: number;
   title: string | null;
   video_path: string;
+  thumbnail_path?: string | null;
   analysis_results: AnalysisModulesPayload | Record<string, unknown> | null;
   created_at: string;
   user_id: number;
@@ -309,13 +310,94 @@ export async function updateProfile(profileData: ProfileUpdateIn): Promise<Profi
   return result;
 }
 
+type UploadUrlEntry = { upload_url: string; path: string };
+export type UploadUrlResponse = { video: UploadUrlEntry; thumbnail: UploadUrlEntry };
+
 // Public API: runs
-export async function generateUploadUrl(): Promise<{ upload_url: string; path: string }> {
-  return requestAuth<{ upload_url: string; path: string }>(
+export async function generateUploadUrl(): Promise<UploadUrlResponse> {
+  const raw = await requestAuth<Record<string, unknown>>(
     "/runs/upload-url",
     { method: "POST" },
     "Failed to generate upload URL",
   );
+  if (!raw || typeof raw !== "object") {
+    throw new Error("Upload service unavailable — please try again");
+  }
+  // New backend: {video: {upload_url, path}, thumbnail: {upload_url, path}}
+  if (typeof raw.video === "object" && raw.video !== null) {
+    return raw as unknown as UploadUrlResponse;
+  }
+  // Old backend fallback: flat {upload_url, path} — adapt to expected shape
+  if (typeof raw.upload_url === "string") {
+    const videoEntry: UploadUrlEntry = { upload_url: raw.upload_url, path: (raw.path as string) ?? "" };
+    // No separate thumbnail URL in old backend — signal with empty string
+    return { video: videoEntry, thumbnail: { upload_url: "", path: videoEntry.path } };
+  }
+  throw new Error("Unexpected upload server response — please update the app or try again");
+}
+
+// Recommendation types
+export type RecommendationExercise = {
+  name: string;
+  type: string;
+  duration_or_reps: string;
+  rationale: string;
+};
+export type RecommendationDrill = {
+  name: string;
+  duration: string;
+  cue: string;
+};
+export type RecommendationIssue = {
+  issue_key: string;
+  name: string;
+  severity: "high" | "moderate" | "mild";
+  impact: string;
+  exercises: RecommendationExercise[];
+  drills: RecommendationDrill[];
+  technique_cues: string[];
+};
+export type Recommendations = {
+  issues: RecommendationIssue[];
+  summary: string;
+};
+
+export async function getRecommendations(runId: number): Promise<Recommendations | null> {
+  const key = `recommendations:${runId}`;
+  const cached = await cacheGet<Recommendations>(key);
+  if (cached !== undefined) return cached;
+  try {
+    const data = await requestAuth<{ run_id: number; recommendations: Recommendations }>(
+      `/analysis/recommendations?run_id=${encodeURIComponent(String(runId))}`,
+      { method: "GET" },
+      "Failed to fetch recommendations",
+    );
+    // Cache for 24h — recommendations don't change once generated
+    await cacheSet(key, data.recommendations, 24 * 60 * 60 * 1000);
+    return data.recommendations;
+  } catch (err) {
+    console.warn(`[recommendations] run ${runId}:`, err);
+    return null;
+  }
+}
+
+export async function getRunThumbnailUrl(runId: number): Promise<string | null> {
+  const key = `thumbnail-url:${runId}`;
+  const cached = await cacheGet<string>(key);
+  if (cached !== undefined) return cached;
+  try {
+    const data = await requestAuth<{ url: string }>(
+      `/runs/thumbnail-url?run_id=${encodeURIComponent(String(runId))}`,
+      { method: "GET" },
+      "Failed to fetch thumbnail URL",
+    );
+    // Cache for 55 min — Supabase signed URLs expire after 60 min
+    await cacheSet(key, data.url, 55 * 60 * 1000);
+    return data.url;
+  } catch (err) {
+    console.warn(`[thumbnail] run ${runId}:`, err);
+    return null;
+  }
 }
 
 export async function binaryUpload(
@@ -580,9 +662,14 @@ async function attemptTokenRefresh(): Promise<string | null> {
         body: JSON.stringify({ refresh_token: storedRefresh }),
       });
       if (!response.ok) {
-        await deleteStoredToken();
-        await deleteStoredRefreshToken();
-        await cacheClear();
+        // Only clear stored tokens for definitive auth failures (4xx).
+        // 5xx is a transient server error (e.g. cold start) — keep the tokens
+        // so the user can retry without being permanently logged out.
+        if (response.status < 500) {
+          await deleteStoredToken();
+          await deleteStoredRefreshToken();
+          await cacheClear();
+        }
         return null;
       }
       const data = await response.json() as AuthTokenResponse;
@@ -608,24 +695,38 @@ async function requestAuth<T>(
   const token = await getStoredToken();
   if (!token) throw new Error("No authentication token found");
 
+  const refreshToken = await getStoredRefreshToken();
+
   const makeRequest = (accessToken: string) =>
     fetch(`${API_BASE_URL}${path}`, {
       ...init,
       headers: {
         Authorization: `Bearer ${accessToken}`,
         "Content-Type": "application/json",
+        ...(refreshToken ? { "X-Refresh-Token": refreshToken } : {}),
         ...(init.headers ?? {}),
       },
     });
 
   let response = await makeRequest(token);
 
+  // The backend's no-logout auth silently refreshes when the access token is
+  // expired and X-Refresh-Token is valid. Persist the new tokens immediately.
+  const newAccessToken = response.headers.get("X-New-Access-Token");
+  const newRefreshToken = response.headers.get("X-New-Refresh-Token");
+  if (newAccessToken) {
+    await setStoredToken(newAccessToken);
+    if (newRefreshToken) await setStoredRefreshToken(newRefreshToken);
+  }
+
   if (response.status === 401) {
-    const newToken = await attemptTokenRefresh();
-    if (!newToken) {
+    // Inline refresh didn't work (refresh token also expired or missing).
+    // Fall back to an explicit /auth/refresh call.
+    const freshToken = await attemptTokenRefresh();
+    if (!freshToken) {
       throw new Error("Session expired. Please sign in again.");
     }
-    response = await makeRequest(newToken);
+    response = await makeRequest(freshToken);
   }
 
   const responseBody = await parseJsonSafe(response);

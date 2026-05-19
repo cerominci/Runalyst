@@ -1,6 +1,7 @@
 import {
   ChatVideoSummary,
   getChatVideos,
+  getRecommendations,
   selectChatVideo,
   sendChatMessage,
 } from "@/utils/endpoints";
@@ -23,7 +24,14 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 type Message = { id: string; sender: "user" | "bot"; text: string };
 
-const SUGGESTIONS = ["Compare to last run", "Strike pattern?", "Drills to fix overstride", "Pacing tips"];
+const DEFAULT_SUGGESTIONS = ["Compare to last run", "Strike pattern?", "How can I improve?", "Pacing tips"];
+
+function buildSuggestionsFromIssues(issueNames: string[]): string[] {
+  if (issueNames.length === 0) return DEFAULT_SUGGESTIONS;
+  const chips = issueNames.slice(0, 3).map((name) => `Fix my ${name.toLowerCase()}`);
+  chips.push("Overall feedback");
+  return chips;
+}
 
 export default function ChatPage() {
   const isFocused = useIsFocused();
@@ -32,6 +40,7 @@ export default function ChatPage() {
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [videos, setVideos] = useState<ChatVideoSummary[]>([]);
   const [selectedVideoId, setSelectedVideoId] = useState<string | null>(null);
+  const [suggestions, setSuggestions] = useState<string[]>(DEFAULT_SUGGESTIONS);
   const [loadingVideos, setLoadingVideos] = useState(false);
   const [aiLoading, setAiLoading] = useState(false);
   const [inputText, setInputText] = useState("");
@@ -52,31 +61,26 @@ export default function ChatPage() {
     scrollToBottom();
   };
 
+  const isFirstLoadRef = useRef(true);
+
   const loadVideos = useCallback(async () => {
-    setLoadingVideos(true);
+    if (isFirstLoadRef.current) setLoadingVideos(true);
     setVideosError(null);
     try {
       const data = await getChatVideos();
       setSessionId(data.session_id);
       setVideos(data.videos);
-      setSelectedVideoId(null);
     } catch (err: any) {
       setVideosError(err.message ?? "Failed to load videos");
     } finally {
       setLoadingVideos(false);
+      isFirstLoadRef.current = false;
     }
   }, []);
 
   useEffect(() => {
     if (isFocused) {
       loadVideos();
-      setMessages([
-        {
-          id: "welcome",
-          sender: "bot",
-          text: "Hi — select one of your analysed videos below, then ask me anything about your running form.",
-        },
-      ]);
     }
   }, [isFocused, loadVideos]);
 
@@ -91,6 +95,14 @@ export default function ChatPage() {
         sender: "bot",
         text: `I've loaded "${video?.title ?? "this video"}". Ask me anything about your form, or tap a suggestion below.`,
       });
+      // Fetch recommendations to build issue-specific suggestion chips
+      const runIdNum = parseInt(videoId, 10);
+      if (!isNaN(runIdNum)) {
+        getRecommendations(runIdNum).then((recs) => {
+          const issueNames = (recs?.issues ?? []).map((i) => i.name);
+          setSuggestions(buildSuggestionsFromIssues(issueNames));
+        }).catch(() => setSuggestions(DEFAULT_SUGGESTIONS));
+      }
     } catch (err: any) {
       addMessage({
         id: `err_${Date.now()}`,
@@ -224,7 +236,7 @@ export default function ChatPage() {
               style={styles.suggestionsScroll}
               contentContainerStyle={styles.suggestionsContent}
             >
-              {SUGGESTIONS.map((s) => (
+              {suggestions.map((s) => (
                 <TouchableOpacity key={s} style={styles.suggestionChip} onPress={() => handleSend(s)}>
                   <Text style={styles.suggestionChipText}>{s}</Text>
                 </TouchableOpacity>
