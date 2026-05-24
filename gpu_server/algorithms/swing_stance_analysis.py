@@ -24,35 +24,107 @@ def load_nlf(filepath):
         return [json.loads(line) for line in f]
 
 
-def plateau_smooth(signal, window=10, std_threshold=50):
+def _fill_short_gaps(mask, max_gap=3):
+    """Fill short False gaps between stance-like regions."""
+    result = mask.copy()
+    n = len(result)
+    i = 0
+
+    while i < n:
+        if not result[i]:
+            start = i
+            while i < n and not result[i]:
+                i += 1
+            end = i
+
+            if start > 0 and end < n and result[start - 1] and result[end]:
+                if end - start <= max_gap:
+                    result[start:end] = True
+        else:
+            i += 1
+
+    return result
+
+
+def _remove_short_regions(mask, min_len=4):
+    """Remove very short True regions that are unlikely to be real stance."""
+    result = mask.copy()
+    n = len(result)
+    i = 0
+
+    while i < n:
+        if result[i]:
+            start = i
+            while i < n and result[i]:
+                i += 1
+            end = i
+
+            if end - start < min_len:
+                result[start:end] = False
+        else:
+            i += 1
+
+    return result
+
+
+def _expand_regions(mask, frames=1):
+    if frames <= 0:
+        return mask
+
+    result = mask.copy()
+    active = np.where(mask)[0]
+    n = len(mask)
+
+    for idx in active:
+        start = max(0, idx - frames)
+        end = min(n, idx + frames + 1)
+        result[start:end] = True
+
+    return result
+
+
+def plateau_smooth(signal, window=10, std_threshold=120, max_gap=3, min_len=4, expand=1):
     """
     Plateau detection: Düşük varyans olan bölgeleri düzleştir.
     
-    - window: kaç frame'lik pencereler incelenecek
-    - std_threshold: bu eşiğin altındaki std'ye sahip pencereler "sabit" sayılır
+    - window: kaç frame'lik merkezli pencere incelenecek
+    - std_threshold: bu eşiğin altındaki rolling std "sabit" sayılır
     
-    Stance fazında ayak sabit → düşük std → ortalamaya eşitle
+    Stance fazında ayak sabit → düşük rolling std → ortalamaya eşitle
     Swing fazında ayak hareket → yüksek std → olduğu gibi bırak
     """
     result = signal.copy()
     n = len(signal)
+
+    if n == 0:
+        return result
+
+    half_window = window // 2
+    low_variance = np.zeros(n, dtype=bool)
+
+    for i in range(n):
+        start = max(0, i - half_window)
+        end = min(n, i + half_window + 1)
+        segment = signal[start:end]
+
+        if len(segment) >= 3 and np.std(segment) < std_threshold:
+            low_variance[i] = True
+
+    low_variance = _fill_short_gaps(low_variance, max_gap=max_gap)
+    low_variance = _remove_short_regions(low_variance, min_len=min_len)
+    low_variance = _expand_regions(low_variance, frames=expand)
     
     i = 0
     while i < n:
-        end = min(i + window, n)
-        segment = signal[i:end]
-        
-        if len(segment) < 3:
-            i = end
-            continue
-            
-        std = np.std(segment)
-        
-        if std < std_threshold:
-            # Low variance = stance phase, flatten to mean
-            result[i:end] = np.mean(segment)
-        
-        i = end
+        if low_variance[i]:
+            start = i
+            while i < n and low_variance[i]:
+                i += 1
+            end = i
+
+            result[start:end] = np.mean(signal[start:end])
+        else:
+            i += 1
     
     return result
 
@@ -228,7 +300,7 @@ def plot_ankle_x(filepath, save_path=None):
     
     # 2. İkinci tur: Plateau smoothing (stance fazlarını düzleştir)
     window = 10
-    std_thresh = 80  # Adjust based on data scale
+    std_thresh = 120  # Adjust based on data scale
     left_plateau = plateau_smooth(left_smooth, window=window, std_threshold=std_thresh)
     right_plateau = plateau_smooth(right_smooth, window=window, std_threshold=std_thresh)
     
@@ -259,12 +331,12 @@ def plot_ankle_x(filepath, save_path=None):
     left_vx_smooth = uniform_filter1d(left_vx, size=3)
     right_vx_smooth = uniform_filter1d(right_vx, size=3)
     
-    # 2. Velocity threshold: < 2000 → 0
+    # 2. Velocity threshold: low absolute motion means stance.
     vel_threshold = 1500
     left_vx_thresh = left_vx_smooth.copy()
     right_vx_thresh = right_vx_smooth.copy()
-    left_vx_thresh[left_vx_thresh < vel_threshold] = 0
-    right_vx_thresh[right_vx_thresh < vel_threshold] = 0
+    left_vx_thresh[np.abs(left_vx_thresh) < vel_threshold] = 0
+    right_vx_thresh[np.abs(right_vx_thresh) < vel_threshold] = 0
     
     # 3. Peak temizleme (short spikes)
     left_vx_clean = remove_spikes(left_vx_thresh)
