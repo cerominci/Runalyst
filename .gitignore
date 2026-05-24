@@ -14,3 +14,5 @@ results
 __pycache__
 
 venv
+
+run_all_nlf_outputs.py
