@@ -5,10 +5,10 @@ import uuid
 import boto3
 import requests
 from supabase import create_client
-from algorithms.pipeline import run_full_pipeline
-from process_video import process_video
+from gpu_server.algorithms.pipeline import run_full_pipeline
+from gpu_server.nlf_extractors.process_video import process_video
 from dotenv import load_dotenv
-from algorithms.video_human_detector import VideoHumanDetector
+from gpu_server.algorithms.video_human_detector import VideoHumanDetector
 load_dotenv()
 
 SQS_QUEUE_URL = os.environ.get("SQS_QUEUE_URL")
