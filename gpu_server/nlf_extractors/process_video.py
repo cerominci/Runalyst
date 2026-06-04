@@ -6,7 +6,7 @@ import torchvision
 import numpy as np
 from PIL import Image
 
-MODEL_PATH = "/home/runalyst/nlf/models/nlf_l_multi_0.3.2.torchscript"
+MODEL_PATH = "/home/furkan/Desktop/nlf_l_multi_0.3.2.torchscript"
 
 _model = None
 _device = None
