@@ -7,6 +7,7 @@ import {
 } from "@/utils/endpoints";
 import { Ionicons } from "@expo/vector-icons";
 import { useIsFocused } from "@react-navigation/native";
+import { useLocalSearchParams } from "expo-router";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
@@ -24,7 +25,34 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 type Message = { id: string; sender: "user" | "bot"; text: string };
 
+function renderMarkdown(text: string, baseStyle: object) {
+  const parts: React.ReactNode[] = [];
+  const regex = /\*\*(.+?)\*\*/g;
+  let last = 0;
+  let match: RegExpExecArray | null;
+  let key = 0;
+  while ((match = regex.exec(text)) !== null) {
+    if (match.index > last) {
+      parts.push(<Text key={key++} style={baseStyle}>{text.slice(last, match.index)}</Text>);
+    }
+    parts.push(<Text key={key++} style={[baseStyle, { fontWeight: "800" }]}>{match[1]}</Text>);
+    last = match.index + match[0].length;
+  }
+  if (last < text.length) {
+    parts.push(<Text key={key++} style={baseStyle}>{text.slice(last)}</Text>);
+  }
+  return <Text style={baseStyle}>{parts}</Text>;
+}
+
 const DEFAULT_SUGGESTIONS = ["Compare to last run", "Strike pattern?", "How can I improve?", "Pacing tips"];
+
+function formatRunLabel(title: string | null, videoId: string, createdAt: string | null): string {
+  const base = title ?? "Run";
+  const date = createdAt
+    ? new Date(createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric" })
+    : null;
+  return date ? `${base} #${videoId} · ${date}` : `${base} #${videoId}`;
+}
 
 function buildSuggestionsFromIssues(issueNames: string[]): string[] {
   if (issueNames.length === 0) return DEFAULT_SUGGESTIONS;
@@ -35,6 +63,7 @@ function buildSuggestionsFromIssues(issueNames: string[]): string[] {
 
 export default function ChatPage() {
   const isFocused = useIsFocused();
+  const { runId: runIdParam } = useLocalSearchParams<{ runId?: string }>();
   const scrollRef = useRef<ScrollView | null>(null);
 
   const [sessionId, setSessionId] = useState<string | null>(null);
@@ -90,10 +119,11 @@ export default function ChatPage() {
       await selectChatVideo(sessionId, videoId);
       setSelectedVideoId(videoId);
       const video = videos.find((v) => v.video_id === videoId);
+      const label = formatRunLabel(video?.title ?? null, videoId, video?.created_at ?? null);
       addMessage({
         id: `sel_${Date.now()}`,
         sender: "bot",
-        text: `I've loaded "${video?.title ?? "this video"}". Ask me anything about your form, or tap a suggestion below.`,
+        text: `I've loaded "${label}". Ask me anything about your form, or tap a suggestion below.`,
       });
       // Fetch recommendations to build issue-specific suggestion chips
       const runIdNum = parseInt(videoId, 10);
@@ -111,6 +141,14 @@ export default function ChatPage() {
       });
     }
   };
+
+  // When navigating to this screen with a new runId while videos are already loaded
+  useEffect(() => {
+    if (!runIdParam || !sessionId || videos.length === 0) return;
+    if (runIdParam === selectedVideoId) return;
+    handleSelectVideo(runIdParam);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [runIdParam, sessionId, videos.length]);
 
   const handleSend = async (text?: string) => {
     const msg = (text ?? inputText).trim();
@@ -175,7 +213,7 @@ export default function ChatPage() {
             <View style={styles.activeInfo}>
               <Text style={styles.activeLabel}>ACTIVE VIDEO</Text>
               <Text style={styles.activeTitle} numberOfLines={1}>
-                {selectedVideo.title ?? `Run ${selectedVideo.video_id}`}
+                {formatRunLabel(selectedVideo.title, selectedVideo.video_id, selectedVideo.created_at)}
               </Text>
             </View>
             <TouchableOpacity
@@ -212,7 +250,7 @@ export default function ChatPage() {
                   <Ionicons name="sparkles" size={12} color="#6347C7" />
                 </View>
                 <View style={styles.botBubble}>
-                  <Text style={styles.botBubbleText}>{m.text}</Text>
+                  {renderMarkdown(m.text, styles.botBubbleText)}
                 </View>
               </View>
             ),
@@ -283,7 +321,7 @@ export default function ChatPage() {
                       color={selected ? "#fff" : "#6347C7"}
                     />
                     <Text style={[styles.videoPillText, selected && styles.videoPillTextSelected]} numberOfLines={1}>
-                      {item.title ?? `Run ${item.video_id}`}
+                      {formatRunLabel(item.title, item.video_id, item.created_at)}
                     </Text>
                   </TouchableOpacity>
                 );

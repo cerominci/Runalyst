@@ -31,10 +31,6 @@ const AppTopBar: React.FC<AppTopBarProps> = ({
     router.back();
   };
 
-  const handleSettings = () => {
-    router.push("/settings");
-  };
-
   const handleSignOut = async () => {
     if (signingOut) return;
     Alert.alert("Log Out", "Are you sure you want to log out?", [
@@ -60,9 +56,6 @@ const AppTopBar: React.FC<AppTopBarProps> = ({
 
   const defaultRight = (
     <View style={styles.rightRow}>
-      <TouchableOpacity style={styles.iconBtn} onPress={handleSettings}>
-        <Ionicons name="settings-outline" size={20} color="#64748B" />
-      </TouchableOpacity>
       <TouchableOpacity
         style={styles.iconBtn}
         onPress={handleSignOut}

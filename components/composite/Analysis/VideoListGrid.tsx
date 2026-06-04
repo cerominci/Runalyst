@@ -1,11 +1,11 @@
-// components/composite/Analysis/VideoListGrid.tsx
 import React from "react";
 import { FlatList, StyleSheet } from "react-native";
 import VideoListItem from "./VideoListItem";
 
 interface VideoItem {
   id: string;
-  thumbnailUri: string;
+  title?: string | null;
+  thumbnailUri?: string;
   date: string;
   score?: number;
 }
@@ -22,6 +22,8 @@ const VideoListGrid: React.FC<VideoListGridProps> = ({ videos, onSelect }) => {
       keyExtractor={(item) => item.id}
       renderItem={({ item }) => (
         <VideoListItem
+          runId={item.id}
+          title={item.title}
           thumbnailUri={item.thumbnailUri}
           date={item.date}
           score={item.score}
@@ -29,14 +31,16 @@ const VideoListGrid: React.FC<VideoListGridProps> = ({ videos, onSelect }) => {
         />
       )}
       contentContainerStyle={styles.container}
+      showsVerticalScrollIndicator={false}
     />
   );
 };
 
 const styles = StyleSheet.create({
   container: {
-    paddingBottom: 24,
-    paddingTop: 8,
+    paddingHorizontal: 16,
+    paddingBottom: 32,
+    paddingTop: 4,
   },
 });
 

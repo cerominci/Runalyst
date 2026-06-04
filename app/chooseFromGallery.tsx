@@ -2,6 +2,7 @@ import AppTopBar from "@/components/composite/Layout/AppTopBar";
 import { Ionicons } from "@expo/vector-icons";
 import { binaryUpload, createRunRecord, generateUploadUrl } from "@/utils/endpoints";
 import * as ImagePicker from "expo-image-picker";
+import * as VideoThumbnails from "expo-video-thumbnails";
 import { useRouter } from "expo-router";
 import { VideoView, useVideoPlayer } from "expo-video";
 import React, { useMemo, useState } from "react";
@@ -31,25 +32,43 @@ export default function GalleryPressScreen() {
   const pickVideoAsync = async () => {
     setError(null);
     setSuccess(false);
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: "videos",
-      allowsEditing: false,
-      quality: 1,
-    });
-    if (!result.canceled) {
-      setSelectedVideo(result.assets?.[0]?.uri ?? null);
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: "videos",
+        allowsEditing: false,
+        quality: 1,
+      });
+      if (!result.canceled) {
+        setSelectedVideo(result.assets?.[0]?.uri ?? null);
+      }
+    } catch (e: any) {
+      const msg: string = e?.message ?? "";
+      if (msg.includes("3164") || msg.includes("iCloud") || msg.includes("PHPhotos")) {
+        setError("This video is stored in iCloud and not downloaded. Open the Photos app, download the video to your device, then try again.");
+      } else {
+        setError(msg || "Failed to pick video. Please try again.");
+      }
     }
   };
 
   const trimVideoAsync = async () => {
     setError(null);
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: "videos",
-      allowsEditing: true,
-      quality: 1,
-    });
-    if (!result.canceled) {
-      setSelectedVideo(result.assets?.[0]?.uri ?? null);
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: "videos",
+        allowsEditing: true,
+        quality: 1,
+      });
+      if (!result.canceled) {
+        setSelectedVideo(result.assets?.[0]?.uri ?? null);
+      }
+    } catch (e: any) {
+      const msg: string = e?.message ?? "";
+      if (msg.includes("3164") || msg.includes("iCloud") || msg.includes("PHPhotos")) {
+        setError("This video is stored in iCloud and not downloaded. Open the Photos app, download the video to your device, then try again.");
+      } else {
+        setError(msg || "Failed to pick video. Please try again.");
+      }
     }
   };
 
@@ -74,9 +93,13 @@ export default function GalleryPressScreen() {
     setIsUploading(true);
     setError(null);
     try {
-      const { upload_url: uploadUrl, path } = await generateUploadUrl();
-      await binaryUpload(fileInfo.uri, uploadUrl, fileInfo.type);
-      await createRunRecord(path, "run");
+      const { video, thumbnail } = await generateUploadUrl();
+      await binaryUpload(fileInfo.uri, video.upload_url, fileInfo.type);
+      if (thumbnail.upload_url) {
+        const { uri: thumbnailUri } = await VideoThumbnails.getThumbnailAsync(fileInfo.uri, { time: 1000 });
+        await binaryUpload(thumbnailUri, thumbnail.upload_url, "image/jpeg");
+      }
+      await createRunRecord(video.path, "run");
       setSuccess(true);
       setSelectedVideo(null);
     } catch (e: any) {

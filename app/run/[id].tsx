@@ -1,24 +1,12 @@
-import Banner from "@/components/atomic/Layout/Banner";
-import Column from "@/components/atomic/Layout/Column";
-import ScreenContainer from "@/components/atomic/Layout/ScreenContainer";
-import ScrollScreen from "@/components/atomic/Layout/ScrollScreen";
-import Subtitle from "@/components/atomic/Typography/Subtitle";
-import Title from "@/components/atomic/Typography/Title";
+import RecommendationsSection from "@/components/composite/Analysis/RecommendationsSection";
 import ContactTrendMiniChart, {
   ContactTrendPoint,
 } from "@/components/composite/Analysis/ContactTrendMiniChart";
-import RecommendationsSection from "@/components/composite/Analysis/RecommendationsSection";
 import EventDegreeLineChart, {
   EventDegreePoint,
 } from "@/components/composite/Analysis/EventDegreeLineChart";
 import EventPairsTable from "@/components/composite/Analysis/EventPairsTable";
-import KeyValueGrid, {
-  KeyValueItem,
-} from "@/components/composite/Analysis/KeyValueGrid";
-import ResultExplanationText from "@/components/composite/Analysis/ResultExplanationText";
 import ResultGraph from "@/components/composite/Analysis/ResultGraph";
-import ResultSection from "@/components/composite/Analysis/ResultSection";
-import ResultStatsTable from "@/components/composite/Analysis/ResultStatsTable";
 import StrideDonutComparison from "@/components/composite/Analysis/StrideDonutComparison";
 import {
   AnalysisModulesPayload,
@@ -29,9 +17,20 @@ import {
   KneeEvents,
   Run,
 } from "@/utils/endpoints";
+import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
+import {
+  ActivityIndicator,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+
+type AnalysisTab = "overview" | "details" | "coach";
 
 type ResolvedAnalysis = {
   id: number | string;
@@ -39,15 +38,6 @@ type ResolvedAnalysis = {
   created_at: string;
   modules: AnalysisModulesPayload;
   source: "analysis_get" | "history_fallback" | "run_fallback";
-};
-
-type DebugInfo = {
-  runId: number;
-  source?: ResolvedAnalysis["source"];
-  lastError?: string;
-  historyChecked?: boolean;
-  historyCount?: number;
-  historyMatchFound?: boolean;
 };
 
 function formatValue(value: unknown): string {
@@ -155,12 +145,6 @@ function isNotReadyError(message: string): boolean {
   );
 }
 
-function toStatsRows(obj: Record<string, unknown>, skipKeys: string[] = []) {
-  return Object.entries(obj)
-    .filter(([key]) => !skipKeys.includes(key))
-    .map(([key, value]) => ({ label: key, value: formatValue(value) }));
-}
-
 function toEventRows(event: unknown): [number, number][] {
   if (!Array.isArray(event)) return [];
   return event
@@ -185,21 +169,17 @@ function buildSortedKneeSeries(events?: KneeEvents): EventDegreePoint[] {
     .sort((a, b) => a.frame - b.frame);
 }
 
-function renderKneeEvents(title: string, events?: KneeEvents) {
-  if (!events) return null;
-  const sortedSeries = buildSortedKneeSeries(events);
+function formatRunDate(iso?: string): string {
+  if (!iso) return "";
+  const d = new Date(iso);
+  const now = new Date();
+  const diffDays = Math.floor((now.getTime() - d.getTime()) / (1000 * 60 * 60 * 24));
+  const time = d.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" });
+  if (diffDays === 0) return `Today · ${time}`;
+  if (diffDays === 1) return `Yesterday · ${time}`;
   return (
-    <View style={styles.kneeBlock}>
-      <Subtitle style={styles.subsectionTitle}>{title}</Subtitle>
-      <EventDegreeLineChart
-        title={`${title} Knee Degree Trend`}
-        data={sortedSeries}
-      />
-      <EventPairsTable title="Foot Strike" rows={toEventRows(events.foot_strike)} />
-      <EventPairsTable title="Mid Stance" rows={toEventRows(events.mid_stance)} />
-      <EventPairsTable title="Toe Off" rows={toEventRows(events.toe_off)} />
-      <EventPairsTable title="Mid Swing" rows={toEventRows(events.mid_swing)} />
-    </View>
+    d.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" }) +
+    ` · ${time}`
   );
 }
 
@@ -211,7 +191,8 @@ export default function RunDetailScreen() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [resolved, setResolved] = useState<ResolvedAnalysis | null>(null);
-  const [debugInfo, setDebugInfo] = useState<DebugInfo | null>(null);
+  const [runInfo, setRunInfo] = useState<Run | null>(null);
+  const [activeTab, setActiveTab] = useState<AnalysisTab>("overview");
 
   const load = useCallback(async () => {
     if (!Number.isFinite(runId)) {
@@ -222,81 +203,45 @@ export default function RunDetailScreen() {
 
     setLoading(true);
     setError(null);
-    setDebugInfo({ runId });
 
-    console.log("[AnalysisFlow] Expected /analysis/get response schema", {
-      id: "number",
-      fps: "number",
-      created_at: "string (ISO datetime)",
-      modules: "object",
-    });
-    console.log("[AnalysisFlow] Sending request to backend", {
-      method: "GET",
-      endpoint: "/analysis/get",
-      query: { run_id: runId },
-    });
+    // Load run metadata for header (non-blocking)
+    getRun(runId)
+      .then((r) => setRunInfo(r))
+      .catch(() => {});
 
     try {
       const response = await getAnalysis(runId);
-      console.log("[AnalysisFlow] /analysis/get response", response);
-      const normalized = normalizeFromAnalysisResult(response);
-      setResolved(normalized);
-      setDebugInfo({ runId, source: normalized.source });
+      setResolved(normalizeFromAnalysisResult(response));
       return;
     } catch (e: unknown) {
       const message = e instanceof Error ? e.message : String(e);
-      console.log("[AnalysisFlow] /analysis/get error", { run_id: runId, message });
 
       if (!isAccessDeniedError(message)) {
         if (isNotReadyError(message)) {
-          setResolved(null);
-          setError("Analysis is not ready at the moment. Please try again.");
-          return;
+          setError("Analysis is not ready yet. Please try again later.");
+        } else {
+          setError(message || "Failed to load analysis");
         }
-        setResolved(null);
-        setError(message || "Failed to load analysis");
         return;
       }
 
+      // History fallback
       try {
-        console.log("[AnalysisFlow] Trying fallback /analysis/history", { run_id: runId });
         const history = await getAnalysisHistory();
-        const matched = history.find((item) => {
-          const candidateRunId =
-            (item as { run_id?: unknown }).run_id ?? (item as { runId?: unknown }).runId;
-          return Number(candidateRunId) === runId;
-        });
-        setDebugInfo({
-          runId,
-          lastError: message,
-          historyChecked: true,
-          historyCount: history.length,
-          historyMatchFound: !!matched,
-        });
+        const matched = history.find((item) => Number(item.run_id) === runId);
         if (matched) {
-          const normalized = normalizeFromHistoryResult(matched);
-          setResolved(normalized);
-          setDebugInfo((prev) => ({ ...(prev ?? { runId }), source: normalized.source }));
+          setResolved(normalizeFromHistoryResult(matched));
           return;
         }
-      } catch (historyError) {
-        console.log("[AnalysisFlow] /analysis/history fallback error", historyError);
-      }
+      } catch {}
 
+      // Run fallback
       try {
-        console.log("[AnalysisFlow] Trying fallback /runs/get", { run_id: runId });
         const runPayload = await getRun(runId);
-        console.log("[AnalysisFlow] /runs/get response", runPayload);
-        const normalized = normalizeFromRun(runPayload);
-        setResolved(normalized);
-        setDebugInfo((prev) => ({ ...(prev ?? { runId }), source: normalized.source }));
-        return;
-      } catch (runError) {
-        console.log("[AnalysisFlow] /runs/get fallback error", runError);
+        setResolved(normalizeFromRun(runPayload));
+      } catch {
+        setError(message || "Failed to load analysis");
       }
-
-      setResolved(null);
-      setError(message || "Failed to load analysis");
     } finally {
       setLoading(false);
     }
@@ -327,482 +272,677 @@ export default function RunDetailScreen() {
     : [];
 
   const swingAverages = asObject(swing?.overall_averages);
-  const swingData = [
-    { label: "Left", value: asNumber(swingAverages?.avg_left_flight) ?? 0 },
-    { label: "Right", value: asNumber(swingAverages?.avg_right_flight) ?? 0 },
-    { label: "Double", value: asNumber(swingAverages?.avg_double_flight) ?? 0 },
-  ];
   const trunkMeanData = [
     { label: "Global", value: asNumber(trunk?.mean_global) ?? 0 },
     { label: "Upper", value: asNumber(trunk?.mean_upper) ?? 0 },
     { label: "Lower", value: asNumber(trunk?.mean_lower) ?? 0 },
   ];
 
-  const strikeSummaryItems: KeyValueItem[] = [
-    { keyLabel: "Overall", value: formatValue(strike?.overall) },
-    { keyLabel: "Confidence", value: formatValue(strike?.confidence) },
+  const cadenceValue = asNumber(pelvis?.cadence_steps_per_min);
+  const cadenceTarget = { min: 170, max: 180 };
+  const cadenceStatus =
+    cadenceValue === null
+      ? null
+      : cadenceValue < cadenceTarget.min
+        ? "below"
+        : cadenceValue > cadenceTarget.max
+          ? "above"
+          : "ideal";
+
+  // ----------- Tab: Overview -----------
+  function renderOverview() {
+    if (!pelvis && !strike) {
+      return (
+        <View style={styles.emptyState}>
+          <Ionicons name="analytics-outline" size={40} color="#D1C9F0" />
+          <Text style={styles.emptyTitle}>No overview data</Text>
+          <Text style={styles.emptyText}>Module data not available for this run.</Text>
+        </View>
+      );
+    }
+
+    return (
+      <View style={styles.tabContent}>
+        {/* Cadence */}
+        {pelvis && (
+          <View style={styles.metricCard}>
+            <View style={styles.metricCardHeader}>
+              <Text style={styles.metricCardTitle}>Cadence</Text>
+              <Text style={styles.metricCardUnit}>Steps per minute</Text>
+            </View>
+            <Text style={styles.metricCardValue}>{formatInteger(pelvis.cadence_steps_per_min)}</Text>
+            <Text style={styles.metricCardSub}>
+              Target {cadenceTarget.min}–{cadenceTarget.max} spm
+            </Text>
+            {cadenceStatus && (
+              <View
+                style={[
+                  styles.statusBadge,
+                  cadenceStatus === "ideal" ? styles.statusIdeal : styles.statusWarn,
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.statusBadgeText,
+                    cadenceStatus === "ideal" ? styles.statusIdealText : styles.statusWarnText,
+                  ]}
+                >
+                  {cadenceStatus === "ideal"
+                    ? "ON TARGET"
+                    : cadenceStatus === "below"
+                      ? "BELOW IDEAL"
+                      : "ABOVE IDEAL"}
+                </Text>
+              </View>
+            )}
+          </View>
+        )}
+
+        {/* Vertical Oscillation */}
+        {pelvisSummary && (
+          <View style={styles.comparisonCard}>
+            <Text style={styles.comparisonTitle}>Vertical Oscillation</Text>
+            <StrideDonutComparison
+              leftValue={asNumber(pelvisSummary.avg_excursion_L)}
+              rightValue={asNumber(pelvisSummary.avg_excursion_R)}
+              leftLabel="Left"
+              rightLabel="Right"
+              extraDotLabel="Average (All)"
+              extraDotValue={averagePair(
+                asNumber(pelvisSummary.avg_excursion_L),
+                asNumber(pelvisSummary.avg_excursion_R),
+              )}
+            />
+          </View>
+        )}
+
+        {/* Stride Length */}
+        {pelvis && (
+          <View style={styles.comparisonCard}>
+            <Text style={styles.comparisonTitle}>Stride Length</Text>
+            <StrideDonutComparison
+              leftValue={asNumber(pelvis.mean_stride_L)}
+              rightValue={asNumber(pelvis.mean_stride_R)}
+              extraDotLabel="Average (All)"
+              extraDotValue={averagePair(
+                asNumber(pelvis.mean_stride_L),
+                asNumber(pelvis.mean_stride_R),
+              )}
+            />
+          </View>
+        )}
+
+        {/* Stride Cycle Duration */}
+        {pelvisSummary && (
+          <View style={styles.comparisonCard}>
+            <Text style={styles.comparisonTitle}>Stride Cycle Duration</Text>
+            <StrideDonutComparison
+              leftValue={asNumber(pelvisSummary.avg_half_cycle_L_s)}
+              rightValue={asNumber(pelvisSummary.avg_half_cycle_R_s)}
+              unit=" s"
+              extraDotLabel="Average (All)"
+              extraDotValue={averagePair(
+                asNumber(pelvisSummary.avg_half_cycle_L_s),
+                asNumber(pelvisSummary.avg_half_cycle_R_s),
+              )}
+            />
+          </View>
+        )}
+
+        {/* Strike Pattern */}
+        {strike && (
+          <View style={styles.metricCard}>
+            <Text style={styles.metricCardTitle}>Strike Pattern</Text>
+            <View style={styles.strikeRow}>
+              <View style={styles.strikeItem}>
+                <Text style={styles.strikeLabel}>Pattern</Text>
+                <Text style={styles.strikeValue}>{formatValue(strike.overall)}</Text>
+              </View>
+              <View style={[styles.strikeItem, styles.strikeItemBorder]}>
+                <Text style={styles.strikeLabel}>Confidence</Text>
+                <Text style={styles.strikeValue}>{formatValue(strike.confidence)}</Text>
+              </View>
+            </View>
+            {typeof strike.description === "string" && (
+              <Text style={styles.strikeDescription}>{strike.description}</Text>
+            )}
+          </View>
+        )}
+      </View>
+    );
+  }
+
+  // ----------- Tab: Details -----------
+  function renderDetails() {
+    const hasDetails = overstride1 || overstride2 || trunk || knee || swing || pelvis;
+    if (!hasDetails) {
+      return (
+        <View style={styles.emptyState}>
+          <Ionicons name="analytics-outline" size={40} color="#D1C9F0" />
+          <Text style={styles.emptyTitle}>No detailed data</Text>
+          <Text style={styles.emptyText}>Detailed biomechanical data not available.</Text>
+        </View>
+      );
+    }
+
+    return (
+      <View style={styles.tabContent}>
+        {/* Step Durations */}
+        {pelvis && Array.isArray(pelvis.step_durations_s) && (
+          <View style={styles.sectionCard}>
+            <Text style={styles.sectionTitle}>Step Durations</Text>
+            <ResultGraph
+              title="Step Durations"
+              unit="s"
+              orientation="horizontal"
+              data={pelvis.step_durations_s.map((value, index) => ({
+                label: `S${index + 1}`,
+                value: asNumber(value) ?? 0,
+              }))}
+            />
+          </View>
+        )}
+
+        {/* Overstride */}
+        {overstride1 && (
+          <View style={styles.sectionCard}>
+            <Text style={styles.sectionTitle}>Overstride</Text>
+            {typeof overstride1.description === "string" && (
+              <Text style={styles.sectionDescription}>{overstride1.description}</Text>
+            )}
+            <View style={styles.inlineMetric}>
+              <Text style={styles.inlineMetricLabel}>Pelvis to Contact Distance</Text>
+              <Text style={styles.inlineMetricValue}>
+                {(() => {
+                  const meanAbs = Array.isArray(overstride1.overstride)
+                    ? asNumber(overstride1.overstride[0])
+                    : null;
+                  return meanAbs === null ? "-" : `${(meanAbs / 10).toFixed(2)} cm`;
+                })()}
+              </Text>
+            </View>
+            <View style={styles.inlineMetric}>
+              <View>
+                <Text style={styles.inlineMetricLabel}>Overstrides Detected</Text>
+                <Text style={styles.inlineMetricSub}>overstride / total steps</Text>
+              </View>
+              <Text style={styles.inlineMetricValue}>
+                {Array.isArray(overstride1.overstride)
+                  ? `${toIntegerString(overstride1.overstride[2])}/${toIntegerString(overstride1.overstride[3])}`
+                  : "-"}
+              </Text>
+            </View>
+          </View>
+        )}
+
+        {/* Overstride Index */}
+        {overstride2 && (
+          <View style={styles.sectionCard}>
+            <Text style={styles.sectionTitle}>Overstride Index</Text>
+            <Text style={styles.sectionDescription}>
+              Weighted combination of alpha angle and lean forward. Thresholds: acceptable &lt; 5°,
+              mild &lt; 10°, overstride ≥ 10°.
+            </Text>
+            <View style={styles.inlineMetric}>
+              <Text style={styles.inlineMetricLabel}>Mean Index</Text>
+              <Text style={styles.inlineMetricValue}>
+                {formatDegrees(overstride2.mean_overstride_index_deg)}
+              </Text>
+            </View>
+            {typeof overstride2.comment === "string" && (
+              <Text style={styles.commentText}>{overstride2.comment}</Text>
+            )}
+            {overstrideTrendData.length > 0 && (
+              <ContactTrendMiniChart
+                title="Per Contact Overstride Index"
+                data={overstrideTrendData}
+                unit="°"
+              />
+            )}
+          </View>
+        )}
+
+        {/* Trunk Lean */}
+        {trunk && (
+          <View style={styles.sectionCard}>
+            <Text style={styles.sectionTitle}>Trunk Lean Analysis</Text>
+            {typeof trunk.description === "string" && (
+              <Text style={styles.sectionDescription}>{trunk.description}</Text>
+            )}
+
+            <View style={styles.regionCard}>
+              <Text style={styles.regionTitle}>Thoracic Spine (Upper Back)</Text>
+              <View style={styles.metricsGrid}>
+                {[
+                  { label: "Min", value: formatDegrees(trunk.min_upper) },
+                  { label: "Max", value: formatDegrees(trunk.max_upper) },
+                  { label: "Mean", value: formatDegrees(trunk.mean_upper) },
+                  { label: "Std", value: formatDegrees(trunk.std_upper) },
+                ].map((m) => (
+                  <View key={m.label} style={styles.metricGridItem}>
+                    <Text style={styles.metricGridLabel}>{m.label}</Text>
+                    <Text style={styles.metricGridValue}>{m.value}</Text>
+                  </View>
+                ))}
+              </View>
+            </View>
+
+            <View style={styles.regionCard}>
+              <Text style={styles.regionTitle}>Lumbar Spine (Lower Back)</Text>
+              <View style={styles.metricsGrid}>
+                {[
+                  { label: "Min", value: formatDegrees(trunk.min_lower) },
+                  { label: "Max", value: formatDegrees(trunk.max_lower) },
+                  { label: "Mean", value: formatDegrees(trunk.mean_lower) },
+                  { label: "Std", value: formatDegrees(trunk.std_lower) },
+                ].map((m) => (
+                  <View key={m.label} style={styles.metricGridItem}>
+                    <Text style={styles.metricGridLabel}>{m.label}</Text>
+                    <Text style={styles.metricGridValue}>{m.value}</Text>
+                  </View>
+                ))}
+              </View>
+            </View>
+
+            <ResultGraph title="Mean Lean Comparison" unit="°" data={trunkMeanData} />
+          </View>
+        )}
+
+        {/* Knee Flexion */}
+        {knee && (
+          <View style={styles.sectionCard}>
+            <Text style={styles.sectionTitle}>Knee Flexion Analysis</Text>
+            {typeof knee.description === "string" && (
+              <Text style={styles.sectionDescription}>{knee.description}</Text>
+            )}
+            {renderKneeSide("Left Knee", asObject(knee.left_events) as KneeEvents | null)}
+            {renderKneeSide("Right Knee", asObject(knee.right_events) as KneeEvents | null)}
+          </View>
+        )}
+
+        {/* Swing / Stance */}
+        {swing && (
+          <View style={styles.sectionCard}>
+            <Text style={styles.sectionTitle}>Swing & Stance Analysis</Text>
+            {typeof swing.description === "string" && (
+              <Text style={styles.sectionDescription}>{swing.description}</Text>
+            )}
+            {swingAverages && (
+              <>
+                <View style={styles.comparisonCard}>
+                  <Text style={styles.comparisonTitle}>Left / Right Swing Phase</Text>
+                  <StrideDonutComparison
+                    leftValue={asNumber(swingAverages.avg_left_flight)}
+                    rightValue={asNumber(swingAverages.avg_right_flight)}
+                    unit="%"
+                    extraDotLabel="Average (All)"
+                    extraDotValue={averagePair(
+                      asNumber(swingAverages.avg_left_flight),
+                      asNumber(swingAverages.avg_right_flight),
+                    )}
+                  />
+                </View>
+                <View style={styles.inlineMetric}>
+                  <View>
+                    <Text style={styles.inlineMetricLabel}>Aerial Phase</Text>
+                    <Text style={styles.inlineMetricSub}>Both feet off the ground</Text>
+                  </View>
+                  <Text style={styles.inlineMetricValue}>
+                    {formatValue(swingAverages.avg_double_flight)}
+                  </Text>
+                </View>
+              </>
+            )}
+          </View>
+        )}
+      </View>
+    );
+  }
+
+  function renderKneeSide(title: string, events: KneeEvents | null) {
+    if (!events) return null;
+    const sortedSeries = buildSortedKneeSeries(events);
+    return (
+      <View style={styles.kneeBlock}>
+        <Text style={styles.kneeSideTitle}>{title}</Text>
+        <EventDegreeLineChart title={`${title} Degree Trend`} data={sortedSeries} />
+        <EventPairsTable title="Foot Strike" rows={toEventRows(events.foot_strike)} />
+        <EventPairsTable title="Mid Stance" rows={toEventRows(events.mid_stance)} />
+        <EventPairsTable title="Toe Off" rows={toEventRows(events.toe_off)} />
+        <EventPairsTable title="Mid Swing" rows={toEventRows(events.mid_swing)} />
+      </View>
+    );
+  }
+
+  // ----------- Tab: AI Coach -----------
+  function renderCoach() {
+    return (
+      <View style={styles.tabContent}>
+        {Object.keys(modules).length > 0 ? (
+          <RecommendationsSection runId={runId} />
+        ) : (
+          <View style={styles.emptyState}>
+            <Ionicons name="sparkles-outline" size={40} color="#D1C9F0" />
+            <Text style={styles.emptyTitle}>No analysis data yet</Text>
+            <Text style={styles.emptyText}>
+              AI recommendations will appear once the analysis is complete.
+            </Text>
+          </View>
+        )}
+
+        <TouchableOpacity
+          style={styles.coachBtn}
+          onPress={() => router.push({ pathname: "/(tabs)/chat", params: { runId: String(runId) } })}
+          activeOpacity={0.85}
+        >
+          <View style={styles.coachBtnIcon}>
+            <Ionicons name="sparkles" size={18} color="#fff" />
+          </View>
+          <Text style={styles.coachBtnText}>Ask AI Coach about this run</Text>
+          <Ionicons name="chevron-forward" size={18} color="#6347C7" />
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
+  const runTitle = runInfo?.title ?? null;
+  const runDateStr = formatRunDate(runInfo?.created_at);
+
+  const tabs: { key: AnalysisTab; label: string }[] = [
+    { key: "overview", label: "Overview" },
+    { key: "details", label: "Details" },
+    { key: "coach", label: "AI Coach" },
   ];
 
   return (
-    <ScreenContainer>
-      <ScrollScreen>
-        <Column style={styles.content}>
-          <Banner title="Run Result" onBackPress={() => router.back()} />
-          <Title style={styles.title}>Run #{Number.isFinite(runId) ? runId : "?"}</Title>
+    <SafeAreaView style={styles.safe} edges={["top"]}>
+      {/* Header */}
+      <View style={styles.header}>
+        <TouchableOpacity style={styles.backBtn} onPress={() => router.back()} activeOpacity={0.7}>
+          <Ionicons name="chevron-back" size={24} color="#0F172A" />
+        </TouchableOpacity>
+        <View style={styles.headerCenter}>
+          <Text style={styles.headerTitle} numberOfLines={1}>
+            {runTitle ? runTitle : `Run #${Number.isFinite(runId) ? runId : "?"}`}
+          </Text>
+          {runDateStr ? <Text style={styles.headerSub}>{runDateStr}</Text> : null}
+        </View>
+        <View style={styles.backBtn} />
+      </View>
 
-          {loading ? (
-            <View style={styles.center}>
-              <ActivityIndicator size="small" color="#3B82F6" />
-              <Subtitle style={styles.muted}>Loading run analysis...</Subtitle>
-            </View>
-          ) : error ? (
-            <View style={styles.card}>
-              <Subtitle style={styles.error}>{error}</Subtitle>
-              {debugInfo && (
-                <Text style={styles.debugText}>
-                  run_id={debugInfo.runId} | source={debugInfo.source ?? "-"} | history_checked=
-                  {String(!!debugInfo.historyChecked)} | history_count=
-                  {debugInfo.historyCount ?? "-"} | history_match=
-                  {String(!!debugInfo.historyMatchFound)}
-                </Text>
-              )}
-            </View>
-          ) : (
-            <>
-              {/* Temporarily hidden per UX request.
-              <View style={styles.card}>
-                <Subtitle style={styles.cardTitle}>Analysis Metadata</Subtitle>
-                <Text style={styles.row}>ID: {resolved?.id ?? "-"}</Text>
-                <Text style={styles.row}>FPS: {resolved?.fps ?? "-"}</Text>
-                <Text style={styles.row}>Created At: {resolved?.created_at ?? "-"}</Text>
-                <Text style={styles.sourceText}>Data source: {resolved?.source ?? "-"}</Text>
-              </View>
-              */}
+      {/* Tab bar */}
+      <View style={styles.tabBar}>
+        {tabs.map((tab) => (
+          <TouchableOpacity
+            key={tab.key}
+            style={[styles.tabPill, activeTab === tab.key && styles.tabPillActive]}
+            onPress={() => setActiveTab(tab.key)}
+            activeOpacity={0.75}
+          >
+            <Text style={[styles.tabPillText, activeTab === tab.key && styles.tabPillTextActive]}>
+              {tab.label}
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </View>
 
-              {pelvis && (
-                <View style={styles.pelvisSectionCard}>
-                  <View style={styles.cadenceCard}>
-                    <Text style={styles.cadenceTitle}>Cadence</Text>
-                    <Text style={styles.cadenceSubtitle}>Steps per minute</Text>
-                    <Text style={styles.cadenceValue}>
-                      {formatInteger(pelvis.cadence_steps_per_min)}
-                    </Text>
-                  </View>
-                  <View style={styles.strideCompareCard}>
-                    <Text style={styles.strideCompareTitle}>
-                      Vertical Oscillation Comparison
-                    </Text>
-                    {(() => {
-                      const left = asNumber(pelvisSummary?.avg_excursion_L);
-                      const right = asNumber(pelvisSummary?.avg_excursion_R);
-                      return (
-                        <StrideDonutComparison
-                          leftValue={left}
-                          rightValue={right}
-                          leftLabel="Left"
-                          rightLabel="Right"
-                          extraDotLabel="Average (All)"
-                          extraDotValue={averagePair(left, right)}
-                        />
-                      );
-                    })()}
-                  </View>
-                  <View style={styles.strideCompareCard}>
-                    <Text style={styles.strideCompareTitle}>Stride Length Comparison</Text>
-                    {(() => {
-                      const left = asNumber(pelvis.mean_stride_L);
-                      const right = asNumber(pelvis.mean_stride_R);
-                      return (
-                        <StrideDonutComparison
-                          leftValue={left}
-                          rightValue={right}
-                          extraDotLabel="Average (All)"
-                          extraDotValue={averagePair(left, right)}
-                        />
-                      );
-                    })()}
-                  </View>
-                  <View style={styles.strideCompareCard}>
-                    <Text style={styles.strideCompareTitle}>
-                      Stride Cycle Duration Comparison
-                    </Text>
-                    {(() => {
-                      const left = asNumber(pelvisSummary?.avg_half_cycle_L_s);
-                      const right = asNumber(pelvisSummary?.avg_half_cycle_R_s);
-                      return (
-                        <StrideDonutComparison
-                          leftValue={left}
-                          rightValue={right}
-                          unit=" s"
-                          extraDotLabel="Average (All)"
-                          extraDotValue={averagePair(left, right)}
-                        />
-                      );
-                    })()}
-                  </View>
-                  <ResultGraph
-                    title="Step Durations"
-                    unit="s"
-                    orientation="horizontal"
-                    data={
-                      Array.isArray(pelvis.step_durations_s)
-                        ? pelvis.step_durations_s.map((value, index) => ({
-                            label: `S${index + 1}`,
-                            value: asNumber(value) ?? 0,
-                          }))
-                        : []
-                    }
-                  />
-                </View>
-              )}
-
-              {overstride1 && (
-                <ResultSection
-                  title="Overstride"
-                  description={formatValue(overstride1.description)}
-                >
-                  <View style={styles.cadenceCard}>
-                    <Text style={styles.cadenceTitle}>
-                      Pelvis to Initial Contact Distance
-                    </Text>
-                    <Text style={styles.cadenceValue}>
-                      {(() => {
-                        const meanAbs = Array.isArray(overstride1.overstride)
-                          ? asNumber(overstride1.overstride[0])
-                          : null;
-                        if (meanAbs === null) return "-";
-                        return `${(meanAbs / 10).toFixed(2)} cm`;
-                      })()}
-                    </Text>
-                  </View>
-                  <View style={styles.cadenceCard}>
-                    <Text style={styles.cadenceTitle}>Overstrides Detected</Text>
-                    <Text style={styles.cadenceSubtitle}>
-                      overstride steps/total step count
-                    </Text>
-                    <Text style={styles.cadenceValue}>
-                      {(() => {
-                        const nOver = Array.isArray(overstride1.overstride)
-                          ? toIntegerString(overstride1.overstride[2])
-                          : "-";
-                        const nTot = Array.isArray(overstride1.overstride)
-                          ? toIntegerString(overstride1.overstride[3])
-                          : "-";
-                        return `${nOver}/${nTot}`;
-                      })()}
-                    </Text>
-                  </View>
-                </ResultSection>
-              )}
-
-              {overstride2 && (
-                <ResultSection
-                  title="Overstride Index"
-                  description="The overstride index is a weighted combination of the alpha angle (pelvis-to-contact angle) and the lean forward angle (pelvis-to-head angle). It provides a measure of how far the foot lands ahead of the pelvis, adjusted for the runner's forward lean."
-                >
-                  <View style={styles.cadenceCard}>
-                    <Text style={styles.cadenceTitle}>Overstride Index</Text>
-                    <Text style={styles.cadenceSubtitle}>
-                      Thresholds: acceptable &lt; 5, mild &lt; 10, overstride &gt;= 10
-                    </Text>
-                    <Text style={styles.cadenceValue}>
-                      {formatDegrees(overstride2.mean_overstride_index_deg)}
-                    </Text>
-                    <Text style={styles.overstrideCommentText}>
-                      {formatValue(overstride2.comment)}
-                    </Text>
-                  </View>
-                  <ContactTrendMiniChart
-                    title="Per Contact Overstride Index"
-                    data={overstrideTrendData}
-                    unit="°"
-                  />
-                </ResultSection>
-              )}
-
-              {strike && (
-                <ResultSection
-                  title="Strike Analysis"
-                  description={formatValue(strike.description)}
-                >
-                  <KeyValueGrid items={strikeSummaryItems} columns={2} />
-                </ResultSection>
-              )}
-
-              {trunk && (
-                <ResultSection title="Trunk Lean Analysis">
-                  <Text style={styles.trunkDescription}>
-                    Details of thoracic and lumbar lean
-                  </Text>
-
-                  <View style={styles.trunkRegionCard}>
-                    <Text style={styles.trunkRegionTitle}>Thoracic Spine Region</Text>
-                    <Text style={styles.trunkRegionSubtitle}>Upper back lean</Text>
-                    <View style={styles.trunkMetricsGrid}>
-                      <View style={styles.trunkMetricItem}>
-                        <Text style={styles.trunkMetricLabel}>Min</Text>
-                        <Text style={styles.trunkMetricValue}>
-                          {formatDegrees(trunk.min_upper)}
-                        </Text>
-                      </View>
-                      <View style={styles.trunkMetricItem}>
-                        <Text style={styles.trunkMetricLabel}>Max</Text>
-                        <Text style={styles.trunkMetricValue}>
-                          {formatDegrees(trunk.max_upper)}
-                        </Text>
-                      </View>
-                      <View style={styles.trunkMetricItem}>
-                        <Text style={styles.trunkMetricLabel}>Mean</Text>
-                        <Text style={styles.trunkMetricValue}>
-                          {formatDegrees(trunk.mean_upper)}
-                        </Text>
-                      </View>
-                      <View style={styles.trunkMetricItem}>
-                        <Text style={styles.trunkMetricLabel}>Std</Text>
-                        <Text style={styles.trunkMetricValue}>
-                          {formatDegrees(trunk.std_upper)}
-                        </Text>
-                      </View>
-                    </View>
-                  </View>
-
-                  <View style={styles.trunkRegionCard}>
-                    <Text style={styles.trunkRegionTitle}>Lumbar Spine Region</Text>
-                    <Text style={styles.trunkRegionSubtitle}>Lower back lean</Text>
-                    <View style={styles.trunkMetricsGrid}>
-                      <View style={styles.trunkMetricItem}>
-                        <Text style={styles.trunkMetricLabel}>Min</Text>
-                        <Text style={styles.trunkMetricValue}>
-                          {formatDegrees(trunk.min_lower)}
-                        </Text>
-                      </View>
-                      <View style={styles.trunkMetricItem}>
-                        <Text style={styles.trunkMetricLabel}>Max</Text>
-                        <Text style={styles.trunkMetricValue}>
-                          {formatDegrees(trunk.max_lower)}
-                        </Text>
-                      </View>
-                      <View style={styles.trunkMetricItem}>
-                        <Text style={styles.trunkMetricLabel}>Mean</Text>
-                        <Text style={styles.trunkMetricValue}>
-                          {formatDegrees(trunk.mean_lower)}
-                        </Text>
-                      </View>
-                      <View style={styles.trunkMetricItem}>
-                        <Text style={styles.trunkMetricLabel}>Std</Text>
-                        <Text style={styles.trunkMetricValue}>
-                          {formatDegrees(trunk.std_lower)}
-                        </Text>
-                      </View>
-                    </View>
-                  </View>
-
-                  <ResultGraph title="Mean Lean Comparison" unit="°" data={trunkMeanData} />
-                </ResultSection>
-              )}
-
-              {knee && (
-                <ResultSection
-                  title="Knee Flexion Analysis"
-                  description={formatValue(knee.description)}
-                >
-                  {renderKneeEvents(
-                    "Left Events",
-                    (asObject(knee.left_events) as KneeEvents | null) ?? undefined,
-                  )}
-                  {renderKneeEvents(
-                    "Right Events",
-                    (asObject(knee.right_events) as KneeEvents | null) ?? undefined,
-                  )}
-                </ResultSection>
-              )}
-
-              {swing && (
-                <ResultSection
-                  title="Swing Stance Analysis"
-                  description={formatValue(swing.description)}
-                >
-                  <View style={styles.strideCompareCard}>
-                    <Text style={styles.strideCompareTitle}>Left/Right Swing Phase</Text>
-                    <StrideDonutComparison
-                      leftValue={asNumber(swingAverages?.avg_left_flight)}
-                      rightValue={asNumber(swingAverages?.avg_right_flight)}
-                      unit="%"
-                      extraDotLabel="Average (All)"
-                      extraDotValue={averagePair(
-                        asNumber(swingAverages?.avg_left_flight),
-                        asNumber(swingAverages?.avg_right_flight),
-                      )}
-                    />
-                  </View>
-                  <View style={styles.cadenceCard}>
-                    <Text style={styles.cadenceTitle}>Aerial Phase</Text>
-                    <Text style={styles.cadenceSubtitle}>Both feet in the air</Text>
-                    <Text style={styles.cadenceValue}>
-                      {formatValue(swingAverages?.avg_double_flight)}
-                    </Text>
-                  </View>
-                </ResultSection>
-              )}
-
-              {Object.keys(modules).length === 0 && (
-                <ResultExplanationText
-                  title="No Module Data"
-                  points={["This run does not contain detailed module results yet."]}
-                />
-              )}
-
-              {Object.keys(modules).length > 0 && (
-                <RecommendationsSection runId={runId} />
-              )}
-            </>
-          )}
-        </Column>
-      </ScrollScreen>
-    </ScreenContainer>
+      {/* Content */}
+      {loading ? (
+        <View style={styles.centered}>
+          <ActivityIndicator size="large" color="#6347C7" />
+          <Text style={styles.mutedText}>Loading analysis…</Text>
+        </View>
+      ) : error ? (
+        <View style={styles.centered}>
+          <View style={styles.errorCard}>
+            <Ionicons name="alert-circle-outline" size={24} color="#EF4444" />
+            <Text style={styles.errorText}>{error}</Text>
+            <TouchableOpacity style={styles.retryBtn} onPress={load} activeOpacity={0.8}>
+              <Text style={styles.retryText}>Try Again</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      ) : (
+        <ScrollView
+          style={styles.scrollView}
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+        >
+          {activeTab === "overview" && renderOverview()}
+          {activeTab === "details" && renderDetails()}
+          {activeTab === "coach" && renderCoach()}
+        </ScrollView>
+      )}
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  content: {
-    gap: 12,
-    paddingBottom: 24,
+  safe: { flex: 1, backgroundColor: "#F5F3FF" },
+
+  header: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 8,
+    paddingVertical: 12,
+    backgroundColor: "#fff",
+    borderBottomWidth: 1,
+    borderBottomColor: "#E2E8F0",
   },
-  title: {
-    fontSize: 24,
-    fontWeight: "700",
-    color: "#0F172A",
-  },
-  center: {
+  backBtn: {
+    width: 44,
+    height: 44,
     alignItems: "center",
     justifyContent: "center",
+  },
+  headerCenter: { flex: 1, alignItems: "center" },
+  headerTitle: { fontSize: 17, fontWeight: "800", color: "#0F172A" },
+  headerSub: { fontSize: 12, color: "#64748B", marginTop: 2 },
+
+  tabBar: {
+    flexDirection: "row",
+    backgroundColor: "#fff",
+    paddingHorizontal: 16,
+    paddingVertical: 10,
     gap: 8,
-    paddingVertical: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: "#E2E8F0",
   },
-  muted: {
-    color: "#64748B",
+  tabPill: {
+    flex: 1,
+    paddingVertical: 8,
+    borderRadius: 999,
+    alignItems: "center",
+    backgroundColor: "#F1F5F9",
   },
-  card: {
-    backgroundColor: "#FFFFFF",
-    borderRadius: 12,
-    padding: 12,
+  tabPillActive: {
+    backgroundColor: "#6347C7",
   },
-  cardTitle: {
-    fontSize: 16,
-    marginBottom: 8,
-  },
-  row: {
-    color: "#334155",
-    marginBottom: 4,
-  },
-  sourceText: {
-    marginTop: 6,
-    color: "#64748B",
-    fontSize: 12,
-  },
-  error: {
-    color: "#DC2626",
-  },
-  debugText: {
-    marginTop: 8,
-    color: "#64748B",
-    fontSize: 12,
-  },
-  kneeBlock: {
-    gap: 8,
-  },
-  subsectionTitle: {
-    fontSize: 15,
-    marginBottom: 2,
-  },
-  cadenceCard: {
-    borderWidth: 1,
-    borderColor: "#E2E8F0",
-    borderRadius: 10,
-    padding: 12,
-  },
-  cadenceTitle: {
-    color: "#0F172A",
-    fontSize: 16,
+  tabPillText: {
+    fontSize: 13,
     fontWeight: "700",
-  },
-  cadenceSubtitle: {
     color: "#64748B",
-    fontSize: 12,
-    marginTop: 2,
   },
-  cadenceValue: {
-    marginTop: 6,
-    color: "#0F172A",
-    fontSize: 28,
-    fontWeight: "800",
+  tabPillTextActive: {
+    color: "#fff",
   },
-  strideCompareCard: {
+
+  scrollView: { flex: 1 },
+  scrollContent: { paddingBottom: 40 },
+
+  tabContent: {
+    padding: 16,
+    gap: 14,
+  },
+
+  centered: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 24,
+  },
+  mutedText: { color: "#64748B", fontSize: 14, marginTop: 12 },
+
+  errorCard: {
+    backgroundColor: "#fff",
+    borderRadius: 16,
+    padding: 20,
+    alignItems: "center",
+    gap: 10,
     borderWidth: 1,
-    borderColor: "#E2E8F0",
-    borderRadius: 10,
-    padding: 12,
-  },
-  strideCompareTitle: {
-    color: "#0F172A",
-    fontSize: 15,
-    fontWeight: "700",
-    marginBottom: 8,
-  },
-  pelvisSectionCard: {
+    borderColor: "#FEE2E2",
     width: "100%",
-    backgroundColor: "#FFFFFF",
-    borderRadius: 14,
-    paddingVertical: 16,
-    paddingHorizontal: 14,
-    boxShadow: "0px 3px 8px 0px rgba(0, 0, 0, 0.04)",
-    elevation: 1,
-    marginBottom: 16,
+  },
+  errorText: { color: "#EF4444", fontSize: 14, textAlign: "center" },
+  retryBtn: {
+    marginTop: 8,
+    backgroundColor: "#6347C7",
+    borderRadius: 999,
+    paddingHorizontal: 24,
+    paddingVertical: 10,
+  },
+  retryText: { color: "#fff", fontWeight: "700", fontSize: 14 },
+
+  emptyState: {
+    alignItems: "center",
+    paddingVertical: 48,
+    gap: 8,
+  },
+  emptyTitle: { fontSize: 16, fontWeight: "700", color: "#0F172A" },
+  emptyText: { fontSize: 13, color: "#64748B", textAlign: "center", lineHeight: 19 },
+
+  // Metric card (cadence, strike)
+  metricCard: {
+    backgroundColor: "#fff",
+    borderRadius: 18,
+    padding: 18,
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+    shadowColor: "#6347C7",
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 3 },
+    elevation: 2,
+    gap: 4,
+  },
+  metricCardHeader: { flexDirection: "row", alignItems: "baseline", gap: 8 },
+  metricCardTitle: { fontSize: 16, fontWeight: "700", color: "#0F172A" },
+  metricCardUnit: { fontSize: 12, color: "#64748B" },
+  metricCardValue: { fontSize: 44, fontWeight: "800", color: "#0F172A", marginTop: 4 },
+  metricCardSub: { fontSize: 13, color: "#64748B" },
+
+  statusBadge: {
+    alignSelf: "flex-start",
+    borderRadius: 999,
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    marginTop: 8,
+  },
+  statusIdeal: { backgroundColor: "#F0FDF4" },
+  statusWarn: { backgroundColor: "#FFF0E8" },
+  statusBadgeText: { fontSize: 11, fontWeight: "700", letterSpacing: 0.5 },
+  statusIdealText: { color: "#16A34A" },
+  statusWarnText: { color: "#EA580C" },
+
+  comparisonCard: {
+    backgroundColor: "#fff",
+    borderRadius: 18,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+    shadowColor: "#6347C7",
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 3 },
+    elevation: 2,
+  },
+  comparisonTitle: { fontSize: 15, fontWeight: "700", color: "#0F172A", marginBottom: 10 },
+
+  strikeRow: { flexDirection: "row", marginTop: 12 },
+  strikeItem: { flex: 1, gap: 4 },
+  strikeItemBorder: { paddingLeft: 16, borderLeftWidth: 1, borderLeftColor: "#E2E8F0" },
+  strikeLabel: { fontSize: 11, fontWeight: "600", color: "#64748B", letterSpacing: 0.4 },
+  strikeValue: { fontSize: 18, fontWeight: "700", color: "#0F172A", textTransform: "capitalize" },
+  strikeDescription: { fontSize: 13, color: "#64748B", marginTop: 10, lineHeight: 19 },
+
+  // Section card (details tab)
+  sectionCard: {
+    backgroundColor: "#fff",
+    borderRadius: 18,
+    padding: 18,
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+    shadowColor: "#6347C7",
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 3 },
+    elevation: 2,
     gap: 12,
   },
-  trunkDescription: {
-    color: "#475569",
-    fontSize: 14,
+  sectionTitle: { fontSize: 16, fontWeight: "800", color: "#0F172A" },
+  sectionDescription: { fontSize: 13, color: "#64748B", lineHeight: 19 },
+
+  inlineMetric: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingVertical: 10,
+    borderTopWidth: 1,
+    borderTopColor: "#F1F5F9",
   },
-  trunkRegionCard: {
+  inlineMetricLabel: { fontSize: 14, fontWeight: "600", color: "#334155" },
+  inlineMetricSub: { fontSize: 11, color: "#94A3B8", marginTop: 2 },
+  inlineMetricValue: { fontSize: 20, fontWeight: "800", color: "#0F172A" },
+
+  commentText: {
+    fontSize: 13,
+    color: "#475569",
+    backgroundColor: "#F8FAFC",
+    borderRadius: 10,
+    padding: 10,
+    lineHeight: 19,
+  },
+
+  regionCard: {
     borderWidth: 1,
     borderColor: "#E2E8F0",
-    borderRadius: 10,
-    padding: 12,
-    gap: 8,
+    borderRadius: 12,
+    padding: 14,
+    gap: 10,
   },
-  trunkRegionTitle: {
-    color: "#0F172A",
-    fontSize: 15,
-    fontWeight: "700",
-  },
-  trunkRegionSubtitle: {
-    color: "#64748B",
-    fontSize: 12,
-  },
-  trunkMetricsGrid: {
+  regionTitle: { fontSize: 14, fontWeight: "700", color: "#0F172A" },
+  metricsGrid: { flexDirection: "row", flexWrap: "wrap" },
+  metricGridItem: { width: "50%", paddingVertical: 4 },
+  metricGridLabel: { fontSize: 11, color: "#94A3B8", fontWeight: "600" },
+  metricGridValue: { fontSize: 18, fontWeight: "700", color: "#0F172A", marginTop: 2 },
+
+  kneeBlock: { gap: 8 },
+  kneeSideTitle: { fontSize: 14, fontWeight: "700", color: "#4929B3", marginBottom: 4 },
+
+  // AI Coach tab
+  coachBtn: {
     flexDirection: "row",
-    flexWrap: "wrap",
-    marginHorizontal: -4,
-    rowGap: 8,
+    alignItems: "center",
+    gap: 12,
+    backgroundColor: "#fff",
+    borderRadius: 18,
+    padding: 16,
+    borderWidth: 1.5,
+    borderColor: "#EDE9FB",
+    shadowColor: "#6347C7",
+    shadowOpacity: 0.08,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 3,
+    marginTop: 4,
   },
-  trunkMetricItem: {
-    width: "50%",
-    paddingHorizontal: 4,
+  coachBtnIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: "#6347C7",
+    alignItems: "center",
+    justifyContent: "center",
   },
-  trunkMetricLabel: {
-    color: "#64748B",
-    fontSize: 12,
-    marginBottom: 2,
-  },
-  trunkMetricValue: {
-    color: "#0F172A",
-    fontSize: 17,
-    fontWeight: "700",
-  },
-  overstrideCommentText: {
-    marginTop: 8,
-    color: "#475569",
-    fontSize: 13,
-  },
+  coachBtnText: { flex: 1, fontSize: 15, fontWeight: "700", color: "#0F172A" },
 });

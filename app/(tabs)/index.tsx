@@ -3,7 +3,7 @@ import { getAllRuns, getCurrentUser, Run } from "@/utils/endpoints";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 import { useIsFocused } from "@react-navigation/native";
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   ScrollView,
@@ -17,13 +17,14 @@ import { SafeAreaView } from "react-native-safe-area-context";
 export default function HomeScreen() {
   const router = useRouter();
   const isFocused = useIsFocused();
+  const isFirstLoadRef = useRef(true);
   const [userName, setUserName] = useState<string | null>(null);
   const [lastRun, setLastRun] = useState<Run | null>(null);
   const [weekCount, setWeekCount] = useState(0);
   const [loading, setLoading] = useState(true);
 
   const fetchData = useCallback(async () => {
-    setLoading(true);
+    if (isFirstLoadRef.current) setLoading(true);
     try {
       const [user, runs] = await Promise.all([getCurrentUser(), getAllRuns()]);
       const email = user?.email ?? "";
@@ -40,6 +41,7 @@ export default function HomeScreen() {
       // non-critical — show empty state
     } finally {
       setLoading(false);
+      isFirstLoadRef.current = false;
     }
   }, []);
 
@@ -51,7 +53,7 @@ export default function HomeScreen() {
     new Date(iso).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
 
   return (
-    <SafeAreaView style={styles.safe}>
+    <SafeAreaView style={styles.safe} edges={["top"]}>
       <ScrollView
         contentContainerStyle={styles.scroll}
         showsVerticalScrollIndicator={false}

@@ -365,8 +365,7 @@ export default function HistoryScreen() {
                   })}
                 </BodyText>
                 <BodyText style={styles.listItemDetails}>
-                  cadence {Math.round(item.cadence)} | stride {item.strideLength.toFixed(2)}m |
-                  overstride {item.overstrideIndex.toFixed(2)} deg | modules {item.modulesCount}
+                  cadence {Math.round(item.cadence)} | stride {item.strideLength.toFixed(2)}m | overstride {item.overstrideIndex.toFixed(2)} deg
                 </BodyText>
               </View>
             ))}

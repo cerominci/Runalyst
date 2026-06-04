@@ -48,6 +48,7 @@ export type User = {
   id: number;
   email: string;
   is_active: boolean;
+  auth_provider: string;
   created_at: string;
 };
 

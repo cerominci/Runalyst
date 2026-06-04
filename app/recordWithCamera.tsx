@@ -2,6 +2,7 @@ import PrimaryButton from "@/components/atomic/Button/PrimaryButton";
 import SecondaryButton from "@/components/atomic/Button/SecondaryButton";
 import LoadingSpinner from "@/components/atomic/Feedback/LoadingSpinner";
 import { binaryUpload, createRunRecord, generateUploadUrl } from "@/utils/endpoints";
+import * as VideoThumbnails from "expo-video-thumbnails";
 import { runPreflightCheck } from "@/utils/preflightCheck";
 import FontAwesome6 from "@expo/vector-icons/FontAwesome6";
 import {
@@ -216,20 +217,13 @@ export default function App() {
     try {
       console.log("Starting upload process...");
 
-      // Step 3: Get upload URL
-      console.log("Getting upload URL...");
-      const { upload_url, path } = await generateUploadUrl();
-      console.log('Upload URL received:', { path });
-      console.log('Upload URL:', upload_url);
-      
-      // Step 4: Upload video file to signed URL using centralized binary upload function
-      console.log('Uploading video to signed URL...');
-      await binaryUpload(uri, upload_url, 'video/mp4');
-      
-      console.log('Video uploaded successfully to:', path);
-      
-      // Step 5: Create run record (required for analysis to appear in app)
-      const response = await createRunRecord(path, "run");
+      const { video, thumbnail } = await generateUploadUrl();
+      await binaryUpload(uri, video.upload_url, 'video/mp4');
+      if (thumbnail.upload_url) {
+        const { uri: thumbnailUri } = await VideoThumbnails.getThumbnailAsync(uri, { time: 1000 });
+        await binaryUpload(thumbnailUri, thumbnail.upload_url, 'image/jpeg');
+      }
+      const response = await createRunRecord(video.path, "run");
       if (response == null) {
         throw new Error("Create run response is null");
       }
@@ -424,7 +418,6 @@ export default function App() {
                 />
               </>
             )}
-            {metrics && <Text style={styles.adviceText}>{getAdvice()}</Text>}
           </View>
         )}
 

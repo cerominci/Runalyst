@@ -1,14 +1,13 @@
 import GoogleButton from "@/components/atomic/Button/GoogleButton";
 import PrimaryButton from "@/components/atomic/Button/PrimaryButton";
 import LoadingSpinner from "@/components/atomic/Feedback/LoadingSpinner";
-import { loginWithApple, loginWithGoogle, register } from "@/utils/endpoints";
+import { loginWithGoogle, register } from "@/utils/endpoints";
 import { LICENSE_AGREEMENT_TEXT } from "@/constants/licenseAgreement";
-import * as AppleAuthentication from "expo-apple-authentication";
 import * as Google from "expo-auth-session/providers/google";
 import { useRouter } from "expo-router";
 import * as WebBrowser from "expo-web-browser";
 import { useEffect, useState } from "react";
-import { Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -65,32 +64,6 @@ export default function SignUpPage() {
     }
   };
 
-  const handleAppleSignUp = async () => {
-    setIsLoading(true);
-    setError(null);
-
-    try {
-      const credential = await AppleAuthentication.signInAsync({
-        requestedScopes: [
-          AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
-          AppleAuthentication.AppleAuthenticationScope.EMAIL,
-        ],
-      });
-
-      if (!credential.identityToken) {
-        throw new Error("Apple Sign-In did not return an identity token.");
-      }
-
-      await loginWithApple(credential.identityToken);
-
-      router.replace("/profile");
-    } catch (err: any) {
-      setError(err?.message ?? "Apple Sign-Up failed.");
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
   const handleSignUp = () => {
     // Validation
     if (!email.trim()) {
@@ -126,8 +99,9 @@ export default function SignUpPage() {
       await register(email.trim(), password);
       router.replace("/(tabs)");
     } catch (err: any) {
-      console.error("Signup error:", err);
-      setError(err.message || "Failed to create account. Please try again.");
+      const raw: string = err?.message ?? "";
+      const clean = raw.replace(/^Error:\s*/i, "");
+      setError(clean || "Failed to create account. Please try again.");
     } finally {
       setIsLoading(false);
     }
@@ -193,14 +167,6 @@ export default function SignUpPage() {
           onPress={handleSignUp}
           disabled={isLoading}
         />
-        {Platform.OS === "ios" && (
-          <PrimaryButton
-            title="Continue with Apple"
-            style={styles.appleButton}
-            onPress={handleAppleSignUp}
-            disabled={isLoading}
-          />
-        )}
 
         <Modal
   visible={showLicenseModal}
@@ -335,7 +301,6 @@ const styles = StyleSheet.create({
   terms: { fontSize: 13, color: "#64748B", textAlign: "center", marginTop: 8, lineHeight: 20 },
   link: { color: "#6347C7", fontWeight: "700" },
   signUpButton: { marginTop: 20 },
-  appleButton: { marginTop: 12 },
   googleButton: { marginTop: 12 },
   loadingContainer: { alignItems: "center", marginTop: 16 },
   modalBackdrop: {
