@@ -8,6 +8,7 @@ class UserUpdateIn(BaseModel):
     # Required when setting `password`, to prove the caller still controls
     # the account rather than just holding a possibly-stolen access token.
     current_password: Optional[str] = None
+    push_token: Optional[str] = None
 
     class Config:
         from_attributes = True

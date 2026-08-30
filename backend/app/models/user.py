@@ -36,6 +36,10 @@ class User(Base):
         nullable=False,
         server_default="false"
     )
+    # Expo push token for this user's device, used to notify them when an
+    # analysis finishes. Nullable since not every user grants notification
+    # permission (or is on a fresh signup before the app requests it).
+    push_token: Mapped[str | None] = mapped_column(String(255), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), 
         nullable=False, 
