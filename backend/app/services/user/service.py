@@ -2,7 +2,7 @@ from sqlalchemy.orm import Session
 from fastapi import HTTPException, status
 from app.crud import user as crud_user
 from app.schemas.user import  UserUpdateIn
-from app.core.security import hash_password
+from app.core.security import hash_password, verify_password
 from app.models.user import User
 
 def get_user(db: Session, *, user_id: int) -> User:
@@ -56,8 +56,21 @@ def update_user_account(db: Session, *, user_id: int, payload: UserUpdateIn) -> 
         )
 
     update_data = payload.model_dump(exclude_unset=True)
+    current_password = update_data.pop("current_password", None)
 
     if "password" in update_data:
+        if not db_obj.hashed_password:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="This account has no password to change (signed in via Google/Apple)"
+            )
+        if not current_password or not verify_password(current_password, db_obj.hashed_password):
+            # 400, not 401: this isn't a session/token problem, and the client
+            # treats 401 as "access token expired" and auto-retries via refresh.
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Current password is incorrect"
+            )
         if len(update_data["password"]) < 8:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,

@@ -5,6 +5,9 @@ from typing import Optional
 class UserUpdateIn(BaseModel):
     email: Optional[EmailStr] = None
     password: Optional[str] = None
+    # Required when setting `password`, to prove the caller still controls
+    # the account rather than just holding a possibly-stolen access token.
+    current_password: Optional[str] = None
 
     class Config:
         from_attributes = True
