@@ -55,6 +55,7 @@ export type User = {
 export type UserUpdateIn = {
   email?: string;
   password?: string;
+  current_password?: string;
 };
 
 export type NumericPoint = [number, number];

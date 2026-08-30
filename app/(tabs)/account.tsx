@@ -38,6 +38,7 @@ export default function AccountScreen() {
 
   // Change password modal
   const [showPasswordModal, setShowPasswordModal] = useState(false);
+  const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [passwordError, setPasswordError] = useState<string | null>(null);
@@ -105,6 +106,10 @@ export default function AccountScreen() {
 
   const handleChangePassword = async () => {
     setPasswordError(null);
+    if (!currentPassword) {
+      setPasswordError("Enter your current password.");
+      return;
+    }
     if (newPassword.length < 8) {
       setPasswordError("Password must be at least 8 characters.");
       return;
@@ -115,8 +120,9 @@ export default function AccountScreen() {
     }
     setPasswordLoading(true);
     try {
-      await updateCurrentUser({ password: newPassword });
+      await updateCurrentUser({ password: newPassword, current_password: currentPassword });
       setShowPasswordModal(false);
+      setCurrentPassword("");
       setNewPassword("");
       setConfirmPassword("");
       Alert.alert("Done", "Your password has been updated.");
@@ -232,6 +238,7 @@ export default function AccountScreen() {
                 <TouchableOpacity
                   style={[styles.actionRow, styles.profileRowBorder]}
                   onPress={() => {
+                    setCurrentPassword("");
                     setNewPassword("");
                     setConfirmPassword("");
                     setPasswordError(null);
@@ -282,6 +289,17 @@ export default function AccountScreen() {
             <Text style={styles.modalTitle}>Change Password</Text>
             <Text style={styles.modalSub}>Enter a new password for your account.</Text>
 
+            <Text style={styles.inputLabel}>Current Password</Text>
+            <TextInput
+              style={styles.modalInput}
+              placeholder="Your current password"
+              secureTextEntry
+              value={currentPassword}
+              onChangeText={setCurrentPassword}
+              autoCapitalize="none"
+              placeholderTextColor="#94A3B8"
+            />
+
             <Text style={styles.inputLabel}>New Password</Text>
             <TextInput
               style={styles.modalInput}
@@ -311,7 +329,10 @@ export default function AccountScreen() {
             <View style={styles.modalActions}>
               <TouchableOpacity
                 style={styles.modalCancel}
-                onPress={() => setShowPasswordModal(false)}
+                onPress={() => {
+                  setShowPasswordModal(false);
+                  setCurrentPassword("");
+                }}
                 activeOpacity={0.75}
               >
                 <Text style={styles.modalCancelText}>Cancel</Text>
