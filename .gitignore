@@ -1,0 +1,16 @@
+# macOS
+.DS_Store
+**/.DS_Store
+# Logs
+*.log
+
+.idea
+runalyst.iml
+vcs.xml
+
+nlf_outputs
+pipeline_output
+results
+__pycache__
+
+venv
