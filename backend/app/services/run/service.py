@@ -65,9 +65,18 @@ def get_thumbnail_download_url(*, thumbnail_path: str) -> str:
 
 
 def create_run_record(db: Session, *, user_id: int, payload: RunCreateIn):
+    video_path = payload.video_path
+    if not video_path.startswith(f"{user_id}/"):
+        logger.warning(
+            f"Rejected run creation: user {user_id} submitted video_path outside their own prefix: {video_path}"
+        )
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="video_path must belong to the authenticated user"
+        )
+
     try:
         logger.info(f"Initiating run record creation for user {user_id}")
-        video_path = payload.video_path
         thumbnail_path = video_path[:-4] + ".jpg" if video_path.endswith(".mp4") else video_path + ".jpg"
         new_run = crud_run.create_run(
             db,
