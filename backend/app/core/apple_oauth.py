@@ -26,7 +26,6 @@ def verify_apple_token(identity_token: str, audience: str) -> dict:
     jwks = get_apple_jwks()
     headers = jwt.get_unverified_header(identity_token)
     kid = headers.get("kid")
-    alg = headers.get("alg")
 
     key = next((k for k in jwks.get("keys", []) if k.get("kid") == kid), None)
     if not key:
@@ -35,7 +34,9 @@ def verify_apple_token(identity_token: str, audience: str) -> dict:
     return jwt.decode(
         identity_token,
         key,
-        algorithms=[alg],
+        # Hardcode the expected algorithm rather than trusting the token's own
+        # (attacker-controlled) header, to avoid algorithm-confusion attacks.
+        algorithms=["RS256"],
         audience=audience,
         issuer=APPLE_ISSUER,
         options={"verify_aud": True, "verify_iss": True, "verify_exp": True},

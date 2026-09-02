@@ -1,3 +1,4 @@
+import secrets
 from datetime import datetime
 
 from fastapi import Depends, Header, HTTPException, Response, Security, status
@@ -14,7 +15,7 @@ gpu_api_key_header = APIKeyHeader(name="X-GPU-API-Key", auto_error=False)
 
 
 def verify_gpu_api_key(api_key: str | None = Security(gpu_api_key_header)) -> None:
-    if not api_key or api_key != settings.GPU_API_KEY:
+    if not api_key or not secrets.compare_digest(api_key, settings.GPU_API_KEY):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid or missing GPU API key"

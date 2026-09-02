@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 from app.core.supabase_client import supabase_client
 from app.schemas.run import RunCreateIn, RunOut, RunAllOut
 from app.crud import run as crud_run
+from app.services.notifications.service import send_push_notification
 from app.services.queue.service import send_message_to_queue
 
 # Get logger for this specific module
@@ -65,9 +66,18 @@ def get_thumbnail_download_url(*, thumbnail_path: str) -> str:
 
 
 def create_run_record(db: Session, *, user_id: int, payload: RunCreateIn):
+    video_path = payload.video_path
+    if not video_path.startswith(f"{user_id}/"):
+        logger.warning(
+            f"Rejected run creation: user {user_id} submitted video_path outside their own prefix: {video_path}"
+        )
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="video_path must belong to the authenticated user"
+        )
+
     try:
         logger.info(f"Initiating run record creation for user {user_id}")
-        video_path = payload.video_path
         thumbnail_path = video_path[:-4] + ".jpg" if video_path.endswith(".mp4") else video_path + ".jpg"
         new_run = crud_run.create_run(
             db,
@@ -148,6 +158,15 @@ def update_run_status(db: Session, *, run_id: int, new_status: str):
         db.commit()
         db.refresh(updated_run)
         logger.info(f"Run {run_id} status successfully transitioned to '{new_status}'")
+
+        if new_status == "failed":
+            send_push_notification(
+                push_token=updated_run.owner.push_token if updated_run.owner else None,
+                title="Run analysis failed",
+                body=f"We couldn't process {updated_run.title or 'your run'}. Please try again.",
+                data={"run_id": run_id, "type": "analysis_failed"},
+            )
+
         return updated_run
     except Exception as e:
         db.rollback()

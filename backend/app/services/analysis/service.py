@@ -11,6 +11,7 @@ from app.crud import run as crud_run
 from app.schemas.analysis import AnalysisCreateIn, AnalysisOut
 from app.services.analysis.issue_extractor import extract_issues
 from app.services.analysis.recommendations_client import generate_recommendations
+from app.services.notifications.service import send_push_notification
 
 # Setup logger for the analysis logic
 logger = logging.getLogger(__name__)
@@ -49,6 +50,14 @@ def create_analysis_result(db: Session, *, payload: AnalysisCreateIn) -> Analysi
         db.commit()
         db.refresh(new_result)
         logger.info(f"Analysis cycle complete for run_id: {run_id}. Database committed.")
+
+        send_push_notification(
+            push_token=run_obj.owner.push_token if run_obj.owner else None,
+            title="Your run analysis is ready",
+            body=f"{run_obj.title or 'Your run'} has finished processing.",
+            data={"run_id": run_id, "type": "analysis_complete"},
+        )
+
         return new_result
 
     except SQLAlchemyError as e:
